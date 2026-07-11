@@ -16,3 +16,5 @@ O roadmap atual é organizado pelas seis fases do projeto.
 ## Observação
 
 As fases representam direção estratégica, não cronograma fechado.
+
+Especialmente nas fases finais, presença, companhia digital e comportamentos mais ricos devem ser tratados como evolução orientada por princípios, não como licença para expandir escopo sem critério.

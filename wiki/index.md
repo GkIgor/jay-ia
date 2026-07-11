@@ -33,7 +33,7 @@ Ao iniciar o projeto ou antes de implementar qualquer funcionalidade, recomenda-
 
 **Arquivo**
 
-`README.md`
+[`README.md`](./README.md)
 
 Apresenta a visão geral da Jay.
 
@@ -49,7 +49,14 @@ Responde perguntas como:
 
 ## 2. Vision
 
-`vision/`
+Diretório: [`vision/`](./vision/)
+
+Documentos principais:
+
+- [`vision/principles.md`](./vision/principles.md)
+- [`vision/goals.md`](./vision/goals.md)
+- [`vision/non-goals.md`](./vision/non-goals.md)
+- [`vision/glossary.md`](./vision/glossary.md)
 
 Define os princípios fundamentais do projeto.
 
@@ -65,7 +72,22 @@ Os documentos desta pasta representam a identidade do projeto e tendem a mudar m
 
 ## 3. Architecture
 
-`architecture/`
+Diretório: [`architecture/`](./architecture/)
+
+Documentos principais:
+
+- [`architecture/overview.md`](./architecture/overview.md)
+- [`architecture/core.md`](./architecture/core.md)
+- [`architecture/planner.md`](./architecture/planner.md)
+- [`architecture/memory.md`](./architecture/memory.md)
+- [`architecture/knowledge.md`](./architecture/knowledge.md)
+- [`architecture/learning.md`](./architecture/learning.md)
+- [`architecture/action-bus.md`](./architecture/action-bus.md)
+- [`architecture/frontend.md`](./architecture/frontend.md)
+- [`architecture/openclaw.md`](./architecture/openclaw.md)
+- [`architecture/container.md`](./architecture/container.md)
+- [`architecture/llm-router.md`](./architecture/llm-router.md)
+- [`architecture/security.md`](./architecture/security.md)
 
 Explica cada componente da arquitetura.
 
@@ -84,7 +106,15 @@ A responsabilidade de cada componente deve permanecer consistente.
 
 ## 4. Specifications
 
-`specifications/`
+Diretório: [`specifications/`](./specifications/)
+
+Documentos principais:
+
+- [`specifications/frontend-api.md`](./specifications/frontend-api.md)
+- [`specifications/action-protocol.md`](./specifications/action-protocol.md)
+- [`specifications/ipc.md`](./specifications/ipc.md)
+- [`specifications/plugin-api.md`](./specifications/plugin-api.md)
+- [`specifications/memory-format.md`](./specifications/memory-format.md)
 
 Contém as especificações técnicas.
 
@@ -102,7 +132,16 @@ Exemplos:
 
 ## 5. PRDs
 
-`prds/`
+Diretório: [`prds/`](./prds/)
+
+Documentos:
+
+- [`prds/phase-1.md`](./prds/phase-1.md)
+- [`prds/phase-2.md`](./prds/phase-2.md)
+- [`prds/phase-3.md`](./prds/phase-3.md)
+- [`prds/phase-4.md`](./prds/phase-4.md)
+- [`prds/phase-5.md`](./prds/phase-5.md)
+- [`prds/phase-6.md`](./prds/phase-6.md)
 
 Os PRDs descrevem como cada fase será implementada.
 
@@ -114,7 +153,14 @@ Após a conclusão de uma fase, o PRD torna-se um documento histórico.
 
 ## 6. Decisions
 
-`decisions/`
+Diretório: [`decisions/`](./decisions/)
+
+ADRs atuais:
+
+- [`decisions/0001-core-frontend-independence.md`](./decisions/0001-core-frontend-independence.md)
+- [`decisions/0002-isolated-runtime.md`](./decisions/0002-isolated-runtime.md)
+- [`decisions/0003-openclaw-executor.md`](./decisions/0003-openclaw-executor.md)
+- [`decisions/0004-wiki-source-of-truth.md`](./decisions/0004-wiki-source-of-truth.md)
 
 Armazena todas as decisões arquiteturais do projeto.
 
@@ -131,7 +177,15 @@ Nenhuma decisão importante deve existir apenas em conversas.
 
 ## 7. Development
 
-`development/`
+Diretório: [`development/`](./development/)
+
+Documentos principais:
+
+- [`development/setup.md`](./development/setup.md)
+- [`development/coding-style.md`](./development/coding-style.md)
+- [`development/project-structure.md`](./development/project-structure.md)
+- [`development/testing.md`](./development/testing.md)
+- [`development/release.md`](./development/release.md)
 
 Documentação destinada aos desenvolvedores.
 
@@ -147,13 +201,137 @@ Inclui:
 
 ## 8. Future
 
-`future/`
+Diretório: [`future/`](./future/)
+
+Documentos:
+
+- [`future/ideas.md`](./future/ideas.md)
+- [`future/research.md`](./future/research.md)
+- [`future/roadmap.md`](./future/roadmap.md)
 
 Área destinada para pesquisas, ideias e funcionalidades futuras.
 
 Nada presente nesta seção representa um compromisso de implementação.
 
 Seu objetivo é registrar possibilidades para evolução do projeto.
+
+---
+
+# Guia de Navegação por Decisão
+
+Esta seção existe para reduzir ambiguidade durante desenvolvimento e curadoria da wiki.
+
+## Se a dúvida for sobre identidade do projeto
+
+Ler:
+
+- [`README.md`](./README.md)
+- [`vision/principles.md`](./vision/principles.md)
+- [`vision/goals.md`](./vision/goals.md)
+- [`vision/non-goals.md`](./vision/non-goals.md)
+
+Perguntas típicas:
+
+- O que a Jay deve ser?
+- O que ela não deve se tornar?
+- O que significa companhia digital neste projeto?
+
+## Se a dúvida for sobre arquitetura
+
+Ler:
+
+- [`architecture/overview.md`](./architecture/overview.md)
+- documento específico da pasta `architecture/`
+- ADRs relacionados em [`decisions/`](./decisions/)
+
+Perguntas típicas:
+
+- Esta responsabilidade pertence ao Core ou ao frontend?
+- OpenClaw entra como executor ou como centro da arquitetura?
+- Esta decisão viola o desacoplamento já definido?
+
+## Se a dúvida for sobre contrato técnico
+
+Ler:
+
+- [`specifications/frontend-api.md`](./specifications/frontend-api.md)
+- [`specifications/action-protocol.md`](./specifications/action-protocol.md)
+- [`specifications/ipc.md`](./specifications/ipc.md)
+- outras páginas de `specifications/` relacionadas ao tema
+
+Perguntas típicas:
+
+- Como Core e frontend se comunicam?
+- O que pode ou não ser pedido pelo protocolo?
+- Como memória, plugins ou IPC devem ser tratados?
+
+## Se a dúvida for sobre fases e planejamento
+
+Ler:
+
+- [`phases/`](./phases/)
+- [`prds/`](./prds/)
+
+Perguntas típicas:
+
+- Em que fase esta capacidade entra?
+- Isto é fundação, execução, aprendizado ou evolução futura?
+
+## Se a dúvida for sobre decisão já tomada
+
+Ler:
+
+- [`decisions/`](./decisions/)
+
+Perguntas típicas:
+
+- Isso já foi formalizado?
+- Existe ADR cobrindo essa fronteira?
+- A decisão atual ainda está válida?
+
+## Se a dúvida for sobre como colaborar
+
+Ler:
+
+- [`development/setup.md`](./development/setup.md)
+- [`development/coding-style.md`](./development/coding-style.md)
+- [`development/project-structure.md`](./development/project-structure.md)
+- [`development/testing.md`](./development/testing.md)
+
+Perguntas típicas:
+
+- Posso começar a implementar?
+- Falta registrar alguma decisão?
+- Como organizar a estrutura sem violar a arquitetura?
+
+## Se a dúvida for sobre aprendizado e conhecimento
+
+Ler:
+
+- [`knowledge/wiki-format.md`](./knowledge/wiki-format.md)
+- [`knowledge/indexing.md`](./knowledge/indexing.md)
+- [`knowledge/search.md`](./knowledge/search.md)
+- [`knowledge/learning-pipeline.md`](./knowledge/learning-pipeline.md)
+- [`knowledge/revision.md`](./knowledge/revision.md)
+
+Perguntas típicas:
+
+- Estou falando da wiki do projeto ou da futura base da Jay?
+- Como um agente deve recuperar contexto?
+- Quando algo deve virar conhecimento durável?
+
+## Se a dúvida for sobre ideias futuras
+
+Ler:
+
+- [`future/ideas.md`](./future/ideas.md)
+- [`future/research.md`](./future/research.md)
+- [`future/roadmap.md`](./future/roadmap.md)
+
+Perguntas típicas:
+
+- Isto é decisão atual ou apenas direção futura?
+- Essa hipótese já respeita os princípios do projeto?
 
 ---
 
@@ -248,7 +426,7 @@ Esta documentação foi organizada para servir também como contexto para agente
 Antes de implementar qualquer funcionalidade, recomenda-se que o agente siga o seguinte fluxo:
 
 1. Ler `index.md`.
-2. Ler `README.md`.
+2. Ler [`README.md`](./README.md).
 3. Ler os documentos da pasta `vision/`.
 4. Ler a arquitetura relacionada à funcionalidade.
 5. Ler o PRD correspondente.
@@ -258,6 +436,19 @@ Antes de implementar qualquer funcionalidade, recomenda-se que o agente siga o s
 Nenhum agente deve assumir comportamentos ou arquiteturas que não estejam documentados.
 
 Quando identificar inconsistências, o agente deve priorizar a atualização da documentação antes da implementação.
+
+## Fluxo resumido para agentes
+
+1. Identificar que tipo de decisão precisa ser tomada.
+2. Localizar a seção correta por este índice.
+3. Consultar README, Vision, Architecture, Specifications e ADRs relevantes.
+4. Confirmar se a decisão já existe.
+5. Se não existir e a ambiguidade for material, pedir orientação humana.
+6. Registrar o resultado no local correto da wiki.
+
+## Regra de escalada
+
+Se a resposta depender de aproximação, suposição arriscada, escolha tecnológica ainda não formalizada ou mudança de comportamento arquitetural, o agente deve escalar para humano antes de consolidar a decisão.
 
 ---
 

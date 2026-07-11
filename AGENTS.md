@@ -44,7 +44,7 @@ Application code and tests are not established yet. When they are added, documen
 
 ## Editing, Validation, and Commits
 
-Keep Markdown concise, explicit, and non-duplicative. Prefer kebab-case filenames like `action-bus.md`; keep ADRs numbered like `0001-container.md`.
+Keep Markdown concise, explicit, and non-duplicative. Prefer kebab-case filenames like `action-bus.md`; keep ADRs numbered like `0001-core-frontend-independence.md`.
 
 Before finishing a change:
 - verify the relevant wiki page was consulted

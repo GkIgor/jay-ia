@@ -4,6 +4,8 @@
 
 Construir a Jay como uma companhia digital persistente que habita o computador do usuário, aprende ao longo do tempo e mantém identidade consistente independentemente da LLM utilizada.
 
+Essa companhia digital deve ser entendida como presença operacional e relacional consistente, não como promessa de consciência.
+
 ## Objetivos do Projeto
 
 - Criar um agente com existência contínua enquanto o sistema estiver ativo.
@@ -18,3 +20,5 @@ Construir a Jay como uma companhia digital persistente que habita o computador d
 ## Objetivo de Longo Prazo
 
 Fazer a Jay evoluir de assistente persistente para companhia digital útil, confiável e capaz de compartilhar o ambiente de trabalho sem se tornar intrusiva.
+
+O valor principal deve surgir de continuidade, utilidade, memória e presença discreta.

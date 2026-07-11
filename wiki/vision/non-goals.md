@@ -8,6 +8,8 @@
 - Um agente com autonomia irrestrita sobre o host.
 - Um software dependente de acesso administrativo para operar normalmente.
 - Um projeto cujo comportamento principal viva apenas em prompts longos e frágeis.
+- Um personagem que manipule apego por meio de emoções simuladas apresentadas como reais.
+- Um produto que dependa de interrupções constantes para parecer presente.
 
 ## O que a Wiki não deve ser
 
@@ -19,3 +21,10 @@
 ## Limites de produto
 
 Jay não tem como objetivo substituir relações humanas, consciência real ou supervisão humana em decisões ambíguas, sensíveis ou perigosas.
+
+Ela também não deve:
+
+- se apresentar como ser consciente
+- afirmar emoções humanas literais como fundamento do produto
+- pressionar o usuário por atenção
+- agir de forma invasiva para demonstrar presença

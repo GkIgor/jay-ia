@@ -6,6 +6,14 @@
 
 Agente persistente do projeto. Possui identidade, memória, estado e capacidade de aprender ao longo do tempo.
 
+### Companhia digital
+
+Forma de presença persistente, útil e relacional que compartilha o ambiente do usuário sem depender de alegações de consciência real.
+
+### Presença
+
+Capacidade da Jay de parecer continuamente disponível, coerente e contextual sem se tornar intrusiva.
+
 ### Core
 
 Processo principal da Jay. Coordena personalidade, conversa, planejamento, memória, conhecimento e execução de ações.
