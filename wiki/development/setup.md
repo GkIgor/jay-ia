@@ -6,6 +6,8 @@ O repositório ainda está em fase de definição arquitetural e documental.
 
 ## Pré-requisito atual
 
+Para o desenvolvimento do `core`, `cli` e `sdk`, a linguagem base escolhida foi Go (ver ADR 0005). O colaborador precisará ter o compilador do Go (1.21+) instalado no seu ambiente.
+
 Antes de preparar qualquer ambiente de desenvolvimento, o colaborador precisa entender a arquitetura pretendida.
 
 ## Leitura obrigatória

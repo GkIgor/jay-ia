@@ -161,6 +161,7 @@ ADRs atuais:
 - [`decisions/0002-isolated-runtime.md`](./decisions/0002-isolated-runtime.md)
 - [`decisions/0003-openclaw-executor.md`](./decisions/0003-openclaw-executor.md)
 - [`decisions/0004-wiki-source-of-truth.md`](./decisions/0004-wiki-source-of-truth.md)
+- [`decisions/0005-core-technology-stack.md`](./decisions/0005-core-technology-stack.md)
 
 Armazena todas as decisões arquiteturais do projeto.
 
