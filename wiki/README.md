@@ -2,7 +2,7 @@
 
 ## Documento de Visão Técnica
 
-**Versão:** 0.1
+**Versão:** 0.2
 
 **Status:** Em elaboração
 
@@ -10,727 +10,433 @@
 
 # O que é
 
-## Visão
+Jay é um agente de software persistente projetado para existir como um habitante do computador do usuário, e não como um chatbot acessado apenas por navegador, mensageiro ou aba temporária.
 
-Jay é um agente de software persistente projetado para existir como um habitante do computador do usuário, e não como um chatbot acessado por meio de um navegador ou aplicação de mensagens.
+Seu objetivo não é competir em benchmarks nem fingir conhecimento ilimitado.
 
-Seu objetivo não é competir com modelos de linguagem em benchmarks, responder qualquer pergunta existente ou demonstrar inteligência artificial ilimitada.
-
-Seu objetivo é muito mais simples e, ao mesmo tempo, muito mais difícil:
+Seu objetivo é:
 
 **ser uma companhia digital que evolui junto com o usuário.**
 
-Jay possui identidade própria, memória permanente, personalidade consistente e capacidade de aprender continuamente.
+Jay possui:
 
-Ela existe independentemente do modelo de linguagem utilizado internamente.
+- identidade própria
+- memória permanente
+- personalidade consistente
+- capacidade de aprender continuamente
+- ambiente próprio
 
-Trocar GPT, Claude, Gemini ou qualquer outro modelo não altera quem Jay é.
+Ela continua sendo Jay independentemente do modelo de linguagem utilizado internamente.
 
-A personalidade pertence à Jay.
-
-Os modelos de linguagem são apenas ferramentas utilizadas por ela para raciocinar.
+Trocar GPT, Claude, Gemini, Ollama ou qualquer outro provider não altera sua identidade.
 
 ---
 
-## Filosofia
+# Filosofia
 
-A maioria dos assistentes atuais funciona como uma consulta.
+Assistentes comuns funcionam como consulta:
 
-Usuário pergunta.
+```text
+usuário pergunta
+↓
+modelo responde
+↓
+fim
+```
 
-Modelo responde.
+Jay funciona como entidade persistente:
 
-Fim.
+```text
+Jay já está viva
+↓
+mantém estado, memória e objetivos
+↓
+interage quando o usuário deseja
+↓
+continua existindo depois da conversa
+```
 
-Jay funciona como uma entidade persistente.
-
-Ela possui:
-
-* memória
-* conhecimento
-* objetivos
-* estado interno
-* histórico
-* ambiente próprio
-
-Ela não "nasce" quando a janela é aberta.
+Ela não nasce quando a janela é aberta.
 
 Ela já está em execução.
 
-Ela apenas passa a interagir quando o usuário deseja.
+---
+
+# Papel da LLM
+
+A LLM não representa a Jay.
+
+Ela é apenas um componente do sistema, com dois papéis principais:
+
+- comunicação
+- raciocínio
+
+A LLM pode ajudar a interpretar, planejar e conversar.
+
+Ela **não** é a fonte oficial de conhecimento da Jay para domínios administrados por ela.
 
 ---
 
-## O papel da IA
+# Conhecimento
 
-A inteligência artificial não representa a Jay.
+Jay não deve depender do conhecimento treinado da LLM como autoridade para assuntos que ela administra.
 
-Ela representa apenas uma das ferramentas disponíveis para que Jay consiga pensar.
+Isso inclui, por exemplo:
 
-Internamente, Jay pode utilizar:
+- programação
+- Linux
+- projetos do usuário
+- documentação
+- workspace
+- preferências do usuário
 
-* LLMs
-* APIs
-* ferramentas locais
-* pesquisas
-* documentação
-* conhecimento próprio
+Quando não souber algo, o comportamento esperado é:
 
-O usuário nunca conversa diretamente com uma LLM.
-
-O usuário conversa com Jay.
-
----
-
-## Conhecimento
-
-Jay não deve depender do conhecimento treinado das LLMs.
-
-O conhecimento do modelo serve apenas como apoio para linguagem, interpretação e raciocínio.
-
-Todo conhecimento importante deve ser adquirido por Jay e armazenado em sua própria base.
+```text
+Jay sabe?
+↓
+não
+↓
+admite que ainda não sabe
+↓
+pergunta ao usuário ou pesquisa
+↓
+cura o conteúdo
+↓
+registra
+↓
+reutiliza no futuro
+```
 
 Exemplo:
 
-Usuário pergunta:
+> "O que é Go?"
 
-> O que é Go?
+Se Jay ainda não souber, ela deve responder algo como:
 
-Se Jay não souber, ela responde:
+> "Ainda não aprendi isso. Você quer me explicar ou prefere que eu pesquise?"
 
-> Ainda não aprendi isso.
+Essa abordagem garante:
 
-Ela poderá:
-
-* pedir uma explicação ao usuário
-* pesquisar
-* ler documentação
-* construir seu próprio artigo
-* armazenar esse conhecimento
-
-Nas próximas interações, a resposta será baseada na base de conhecimento construída por ela.
-
-Isso garante:
-
-* evolução contínua
-* independência dos modelos
-* rastreabilidade
-* atualização constante
-* personalidade consistente
+- evolução contínua
+- rastreabilidade
+- atualização progressiva
+- independência parcial dos modelos
+- personalidade mais consistente
 
 ---
 
-## Objetivos
+# Objetivos do Projeto
 
-Os principais objetivos do projeto são:
-
-* criar um agente persistente
-* permitir aprendizado contínuo
-* separar personalidade da inteligência
-* fornecer companhia ao usuário
-* automatizar tarefas
-* construir uma base de conhecimento independente
-* manter isolamento completo do sistema operacional
-* possibilitar evolução durante anos
+- criar um agente persistente
+- separar personalidade, memória, conhecimento e execução
+- permitir aprendizado contínuo
+- fornecer companhia digital sem se tornar intrusiva
+- automatizar tarefas dentro de limites claros
+- operar em ambiente isolado
+- sustentar evolução por muitos anos
 
 ---
 
-# Descrição Técnica
+# Fonte de Verdade
 
-## Arquitetura Geral
+A wiki deste repositório é a fonte oficial de verdade do projeto.
 
-A arquitetura da Jay é baseada em componentes independentes.
+Ela documenta:
 
-Cada componente possui uma responsabilidade específica.
+- princípios
+- responsabilidades
+- decisões arquiteturais
+- especificações
+- planejamento
+
+Se algo importante não estiver documentado na wiki, o agente deve pedir orientação a um humano e registrar a decisão no lugar correto.
+
+## Importante
+
+A wiki do projeto não deve ser confundida com a futura base interna de conhecimento da própria Jay.
+
+Esta wiki descreve o projeto.
+
+A wiki interna da Jay continua em aberto como tema de arquitetura e evolução.
+
+---
+
+# Arquitetura Geral
+
+Jay é organizada como um conjunto de componentes independentes com responsabilidades claras.
 
 ```text
 Usuário
-
-↓
-
+   ↓
 Frontend
-
-↓
-
+   ↓
 Jay Core
-
-↓
-
-Planner
-
-↓
-
-Memory
-
-↓
-
-Knowledge Base
-
-↓
-
-Action Bus
-
-↓
-
-OpenClaw
-
-↓
-
-Ferramentas
+   ├── Personality
+   ├── Conversation
+   ├── Planner
+   ├── Memory
+   ├── Knowledge
+   ├── Learning
+   ├── LLM Router
+   └── Tool Bus
+         ├── OpenClaw Provider
+         ├── MCP Provider
+         ├── Native Provider
+         └── HTTP/API Provider
 ```
-
----
 
 ## Frontend
 
 O frontend representa o corpo da Jay.
 
-Ele não contém inteligência.
+Responsabilidades:
 
-Suas responsabilidades são:
+- avatar
+- voz
+- animações
+- renderização
+- microfone
+- notificações
+- interpretação das ações enviadas pelo Core
 
-* renderizar avatar
-* reproduzir voz
-* reproduzir animações
-* receber áudio
-* exibir notificações
-* interpretar ações enviadas pela Jay
+O frontend não pensa.
 
-O frontend nunca toma decisões.
+Ele executa.
 
-Ele apenas executa comandos.
+## Core
 
----
+O Core representa a identidade operacional da Jay.
 
-## Jay Core
+Responsabilidades:
 
-O Core representa a identidade da Jay.
+- personalidade
+- estado interno
+- coordenação da conversa
+- planejamento
+- memória
+- conhecimento
+- aprendizado
+- orquestração de providers
 
-É responsável por:
-
-* personalidade
-* estado interno
-* memória ativa
-* gerenciamento de conversa
-* coordenação dos componentes
-* tomada de decisão
-
-O Core nunca executa comandos diretamente.
-
----
+O Core deve ser completamente independente de qualquer frontend.
 
 ## Planner
 
-O Planner transforma objetivos em ações.
+O Planner transforma intenção em plano de ação.
 
 Exemplo:
 
-Objetivo:
-
-> Aprender Go.
-
-Plano:
-
-* pesquisar
-* encontrar documentação
-* resumir
-* validar
-* armazenar conhecimento
-
----
+```text
+objetivo: aprender Go
+↓
+pesquisar
+↓
+encontrar fontes
+↓
+curar
+↓
+registrar
+↓
+reutilizar
+```
 
 ## OpenClaw
 
-O OpenClaw representa o executor.
+OpenClaw é executor de ferramentas.
 
-Sua responsabilidade é:
+Ele pode ser usado para shell, skills, MCP, automação e integrações.
 
-* executar ferramentas
-* utilizar MCP
-* utilizar shell
-* executar comandos
-* acessar APIs
-* controlar automações
+Ele não representa:
 
-Ele não conhece a personalidade da Jay.
-
-Ele apenas recebe tarefas.
-
----
-
-## Knowledge Base
-
-A base de conhecimento representa tudo que Jay aprendeu.
-
-Ela pode conter:
-
-* documentação
-* notas
-* artigos
-* tutoriais
-* conhecimento ensinado pelo usuário
-* pesquisas
-
-Cada informação deve possuir:
-
-* origem
-* data
-* versão
-* grau de confiança
-* revisões
-
----
+- personalidade
+- memória
+- conhecimento
+- cérebro da Jay
 
 ## Memória
 
-A memória é diferente da base de conhecimento.
+Memória registra continuidade pessoal e operacional.
 
-Ela contém informações sobre:
+Exemplos:
 
-* usuário
-* preferências
-* projetos
-* conversas
-* hábitos
+- preferências do usuário
+- hábitos
+- projetos recorrentes
+- relações e contexto durável
 
-Exemplo:
+## Conhecimento
 
-Igor prefere Go.
+Conhecimento representa aquilo que a Jay considera verdade nos domínios que ela administra.
 
-Igor utiliza Angular.
+Cada item idealmente deve permitir:
 
-Igor odeia React.
-
-Essas informações fazem parte da memória.
-
-Não da Wiki.
-
----
+- origem
+- data
+- confiança
+- revisão futura
 
 ## Estado
 
-Jay mantém um estado interno permanente.
+Estado é transitório.
 
 Exemplos:
 
-* estudando
-* esperando resposta
-* executando tarefa
-* compilando projeto
-* pesquisando documentação
-
-Esse estado pode ser utilizado para animações e comportamento.
+- compilando
+- pesquisando
+- esperando resposta
+- executando tarefa
 
 ---
 
-## Ambiente
+# Isolamento
 
-Jay vive dentro de um ambiente isolado.
+Jay deve viver em um ambiente isolado e persistente.
 
-Esse ambiente representa seu computador.
+Esse ambiente é sua casa operacional.
 
-Ela possui:
+Requisitos arquiteturais já decididos:
 
-* HOME próprio
-* arquivos próprios
-* configurações próprias
-* cache próprio
-* projetos próprios
+- usuário dedicado
+- ausência de privilégios administrativos
+- filesystem próprio
+- persistência de dados
+- isolamento do host
 
-Ela nunca acessa diretamente o sistema operacional do usuário.
+## O que ainda está em aberto
 
----
+A tecnologia concreta de isolamento ainda não foi escolhida.
 
-## Segurança
+O projeto ainda não fixa Podman, LXC/LXD, systemd-nspawn ou outra alternativa.
 
-Jay nunca executa comandos privilegiados.
-
-Ela não possui:
-
-* sudo
-* root
-* acesso administrativo
-
-Caso destrua seu ambiente, apenas seu container será afetado.
-
-O sistema operacional permanecerá intacto.
+A arquitetura não deve depender dessa escolha.
 
 ---
 
-## Comunicação
+# Segurança
 
-A comunicação entre Jay e o Frontend ocorre por um protocolo de ações.
+Jay não deve operar com acesso administrativo como comportamento normal.
 
-Exemplo:
+Ela não deve depender de:
 
-"falar"
+- `sudo`
+- `root`
+- acesso irrestrito ao host
 
-"animar"
+Recursos sensíveis como tela, microfone e webcam devem ser acessados por mediação do frontend e por mecanismos explícitos de permissão.
 
-"mostrar notificação"
-
-"solicitar microfone"
-
-"solicitar compartilhamento de tela"
-
-O frontend interpreta essas ações.
+O objetivo é limitar danos, preservar previsibilidade e manter fronteiras claras entre agente e sistema operacional.
 
 ---
 
-# Fases
+# Comunicação entre Core e Frontend
 
-# Fase 1
+Jay não deve desenhar interface diretamente.
 
-# Dar vida ao agente
+Ela emite intenções por protocolo.
 
-## Descrição
+Exemplos conceituais:
 
-Criar a infraestrutura mínima para que Jay exista de forma permanente dentro do computador.
+- `avatar.wave`
+- `avatar.smile`
+- `speech.start`
+- `notify`
+- `request.microphone`
 
-Nesta fase ainda não existe avatar complexo, memória elaborada ou autonomia.
+O frontend interpreta essas ações e decide como renderizá-las na plataforma local.
 
-O foco é apenas fazer Jay nascer.
+Essa separação permite:
 
-## Objetivo
-
-Criar um ambiente persistente onde Jay possa viver continuamente.
-
----
-
-## 1. Criar usuário dedicado
-
-Criar um usuário exclusivo para Jay.
-
-Responsabilidades:
-
-* diretório HOME próprio
-* permissões próprias
-* configurações próprias
-* isolamento do usuário principal
+- Core headless
+- reinício isolado do frontend
+- múltiplos frontends
+- portabilidade futura
 
 ---
 
-## 2. Criar ambiente isolado
+# Fases do Projeto
 
-Criar um container persistente.
+## Fase 1: Vida
 
-Responsabilidades:
+Estabelece a existência persistente da Jay como processo contínuo.
 
-* filesystem próprio
-* ferramentas próprias
-* ambiente de desenvolvimento
-* persistência
+Foco:
 
----
+- daemon
+- identidade básica
+- memória mínima
+- operação headless
 
-## 3. Configurar systemd
+## Fase 2: Corpo
 
-Registrar Jay como serviço.
+Dá presença visual e vocal à Jay sem acoplar o Core à interface.
 
-Responsabilidades:
+Foco:
 
-* iniciar junto com o sistema
-* reiniciar automaticamente
-* registrar logs
-* monitorar falhas
+- frontend inicial
+- avatar
+- voz
+- animações básicas
 
----
+## Fase 3: Ações
 
-## 4. Instalar OpenClaw
+Permite que a Jay utilize ferramentas e aja em seu ambiente.
 
-Preparar o executor de ferramentas.
+Foco:
 
-Configurar:
+- Tool Bus
+- OpenClaw como executor
+- shell, arquivos, automação
 
-* gateway
-* skills
-* MCP
-* shell
+## Fase 4: Autonomia Assistida
 
----
+Introduz iniciativa limitada, útil e não intrusiva.
 
-## 5. Criar Jay Core
+Foco:
 
-Implementar:
+- lembretes
+- sugestões
+- agenda
+- ciclos próprios de verificação
 
-* identidade
-* personalidade
-* ciclo principal
-* loop de eventos
+## Fase 5: Aprendizado Contínuo
 
----
+Consolida a capacidade de aprender, registrar, revisar e reutilizar conhecimento.
 
-## 6. Comunicação
+Foco:
 
-Criar protocolo entre frontend e Jay.
+- aquisição de conhecimento
+- curadoria
+- confiança
+- revisão
 
-Inicialmente:
+## Fase 6: Companhia Digital
 
-* texto
-* comandos
-* eventos
+Aprofunda presença, continuidade e convivência com o usuário.
 
----
+Foco:
 
-# Fase 2
+- coerência de personalidade
+- presença persistente
+- sensação de companhia
+- múltiplos clientes e superfícies
 
-# Construir o corpo
-
-## Descrição
-
-Dar uma representação física para Jay.
-
-Nesta fase ela deixa de ser apenas um processo.
-
-## Objetivo
-
-Permitir interação visual e por voz.
+Partes desta fase ainda representam direção atual, não decisão final.
 
 ---
 
-### Implementar frontend
+# Direção de Longo Prazo
 
-### Avatar
+No longo prazo, Jay deve evoluir como plataforma de agente pessoal persistente.
 
-### Sistema de voz
+Isso inclui:
 
-### Reconhecimento de fala
+- novos frontends
+- novos providers
+- maior capacidade de aprendizado
+- presença mais refinada
+- evolução sem perda de identidade
 
-### Sistema de animações
+O objetivo não é construir mais um chat com voz.
 
-### Expressões
-
-### Estados visuais
-
-### Comunicação em tempo real
-
----
-
-# Fase 3
-
-# Construir a memória
-
-## Descrição
-
-Permitir que Jay passe a lembrar de fatos e aprender continuamente.
-
-## Objetivo
-
-Criar identidade persistente.
-
----
-
-### Memória permanente
-
-### Memória temporária
-
-### Base de conhecimento
-
-### Wiki
-
-### Histórico
-
-### Sistema de busca
-
-### Sistema de atualização
-
-### Versionamento do conhecimento
-
-### Revisão automática
-
----
-
-# Fase 4
-
-# Aprendizado
-
-## Descrição
-
-Permitir que Jay aprenda novos assuntos.
-
-## Objetivo
-
-Eliminar dependência do conhecimento interno das LLMs.
-
----
-
-### Pesquisa automática
-
-### Leitura de documentação
-
-### Resumo
-
-### Organização
-
-### Indexação
-
-### Confirmação do usuário
-
-### Aprendizado contínuo
-
----
-
-# Fase 5
-
-# Ferramentas
-
-## Descrição
-
-Permitir que Jay execute tarefas.
-
-## Objetivo
-
-Automatizar trabalho.
-
----
-
-### Shell
-
-### Git
-
-### Navegador
-
-### OpenClaw
-
-### MCP
-
-### APIs
-
-### Plugins
-
----
-
-# Fase 6
-
-# Companhia
-
-## Descrição
-
-Transformar Jay em uma presença constante durante o uso do computador.
-
-## Objetivo
-
-Criar uma sensação de convivência.
-
----
-
-### Conversas naturais
-
-### Comentários espontâneos
-
-### Estados emocionais simulados
-
-### Contexto de conversa
-
-### Presença contínua
-
-### Rotinas próprias
-
----
-
-# Avanços Futuros
-
-Esta seção reúne ideias que não são essenciais para o funcionamento inicial do projeto, mas que representam a direção desejada para a evolução da Jay.
-
----
-
-## Aparições espontâneas
-
-Jay poderá decidir aparecer discretamente na tela após longos períodos sem interação.
-
-Ela nunca deverá interromper o usuário.
-
-Seu objetivo é apenas transmitir presença.
-
-Exemplos:
-
-* aparecer parcialmente atrás da borda da tela
-* acenar
-* sorrir
-* perguntar como está o trabalho
-* observar alguns segundos e desaparecer
-
----
-
-## Desktop próprio
-
-Criar um ambiente visual onde Jay possua sua própria mesa de trabalho.
-
-Ela poderá:
-
-* ler documentos
-* olhar um monitor virtual
-* consultar notas
-* desenhar
-* descansar
-
-Esse ambiente não representa o desktop do usuário.
-
-Representa o ambiente interno da própria Jay.
-
----
-
-## Curiosidade
-
-Implementar um mecanismo interno que permita decisões espontâneas.
-
-Exemplos:
-
-* iniciar conversa
-* revisar conhecimentos antigos
-* sugerir melhorias
-* lembrar compromissos
-* perguntar sobre projetos
-
-Sempre respeitando o contexto do usuário.
-
----
-
-## Evolução do conhecimento
-
-Jay poderá revisar automaticamente conteúdos antigos.
-
-Quando encontrar informações desatualizadas poderá:
-
-* pesquisar novamente
-* comparar versões
-* solicitar confirmação
-* atualizar sua Wiki
-
----
-
-## Sistema de capacidades
-
-Criar um modelo granular de permissões.
-
-Exemplos:
-
-* acesso ao microfone
-* acesso à câmera
-* acesso à tela
-* automação do teclado
-* automação do mouse
-
-Todas as permissões deverão ser concedidas explicitamente pelo usuário.
-
----
-
-## Multi-plataforma
-
-Permitir que Jay execute a mesma arquitetura em:
-
-* Linux
-* Windows
-* macOS
-
-Apenas o frontend será específico de cada sistema operacional.
-
-Todo o restante permanecerá idêntico.
-
----
-
-## Ecossistema
-
-No longo prazo, Jay poderá evoluir para uma plataforma completa de agentes pessoais.
-
-Novos módulos poderão ser adicionados sem alterar sua identidade, permitindo que ela adquira novas habilidades ao longo dos anos, preservando sua memória, sua personalidade e a relação construída com cada usuário.
+O objetivo é construir um habitante digital do computador.

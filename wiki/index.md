@@ -33,9 +33,7 @@ Ao iniciar o projeto ou antes de implementar qualquer funcionalidade, recomenda-
 
 **Arquivo**
 
-```text
-README.md
-```
+`README.md`
 
 Apresenta a visão geral da Jay.
 
@@ -51,9 +49,7 @@ Responde perguntas como:
 
 ## 2. Vision
 
-```text
-vision/
-```
+`vision/`
 
 Define os princípios fundamentais do projeto.
 
@@ -69,9 +65,7 @@ Os documentos desta pasta representam a identidade do projeto e tendem a mudar m
 
 ## 3. Architecture
 
-```text
-architecture/
-```
+`architecture/`
 
 Explica cada componente da arquitetura.
 
@@ -90,9 +84,7 @@ A responsabilidade de cada componente deve permanecer consistente.
 
 ## 4. Specifications
 
-```text
-specifications/
-```
+`specifications/`
 
 Contém as especificações técnicas.
 
@@ -110,9 +102,7 @@ Exemplos:
 
 ## 5. PRDs
 
-```text
-prds/
-```
+`prds/`
 
 Os PRDs descrevem como cada fase será implementada.
 
@@ -124,9 +114,7 @@ Após a conclusão de uma fase, o PRD torna-se um documento histórico.
 
 ## 6. Decisions
 
-```text
-decisions/
-```
+`decisions/`
 
 Armazena todas as decisões arquiteturais do projeto.
 
@@ -143,9 +131,7 @@ Nenhuma decisão importante deve existir apenas em conversas.
 
 ## 7. Development
 
-```text
-development/
-```
+`development/`
 
 Documentação destinada aos desenvolvedores.
 
@@ -161,9 +147,7 @@ Inclui:
 
 ## 8. Future
 
-```text
-future/
-```
+`future/`
 
 Área destinada para pesquisas, ideias e funcionalidades futuras.
 
@@ -179,7 +163,7 @@ Seu objetivo é registrar possibilidades para evolução do projeto.
 wiki/
 │
 ├── README.md
-├── INDEX.md
+├── index.md
 │
 ├── vision/
 ├── architecture/
@@ -218,7 +202,7 @@ Explica como os componentes funcionam.
 
 ## Implementação
 
-Explica como desenvolver.
+Explica como desenvolver, validar e evoluir o projeto sem violar a arquitetura definida.
 
 Essa separação reduz inconsistências e facilita futuras alterações.
 
@@ -263,7 +247,7 @@ Esta documentação foi organizada para servir também como contexto para agente
 
 Antes de implementar qualquer funcionalidade, recomenda-se que o agente siga o seguinte fluxo:
 
-1. Ler `INDEX.md`.
+1. Ler `index.md`.
 2. Ler `README.md`.
 3. Ler os documentos da pasta `vision/`.
 4. Ler a arquitetura relacionada à funcionalidade.
@@ -304,3 +288,13 @@ As tecnologias podem ser substituídas.
 Os modelos de linguagem podem evoluir.
 
 Entretanto, a filosofia, os princípios e a arquitetura da Jay devem permanecer compreensíveis para qualquer pessoa ou agente de IA que participe do projeto, independentemente do momento em que ingressar em seu desenvolvimento.
+
+---
+
+# Diretriz Geral
+
+Esta wiki documenta responsabilidades, princípios e decisões arquiteturais do projeto.
+
+Ela não deve detalhar bibliotecas, frameworks ou tecnologias específicas, exceto quando essas escolhas já tiverem sido formalizadas por ADR.
+
+A wiki do projeto não deve ser confundida com a futura wiki interna de conhecimento da própria Jay.
