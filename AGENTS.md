@@ -25,6 +25,7 @@ For any task:
 3. If wiki and code disagree, assume the wiki is intended truth and flag the mismatch.
 4. If knowledge is missing, ask a human for direction.
 5. After clarification, register the result in the appropriate wiki location.
+6. If there is any pending item, deferred improvement, test gap, mock, `TODO`, or unresolved follow-up, record it in the wiki and update that record when it is resolved or changed.
 
 Good destinations:
 - vision changes: `wiki/vision/`
@@ -32,6 +33,7 @@ Good destinations:
 - formal decisions: `wiki/decisions/`
 - protocols/formats: `wiki/specifications/`
 - delivery planning: `wiki/prds/` or `wiki/phases/`
+- operational follow-ups, deferred work, and test/mocks/TODO tracking: the most relevant wiki page for the topic, or a dedicated entry in `future/`, `development/`, or the applicable ADR/PRD
 
 ## Project Structure
 
