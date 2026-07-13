@@ -16,10 +16,11 @@ type Server struct {
 	socketPath string
 	listener   net.Listener
 	quit       chan struct{}
+	handler    func(ipc.Message) ipc.Message
 }
 
 // NewServer creates a new IPC server. It prefers XDG_RUNTIME_DIR on Linux.
-func NewServer() (*Server, error) {
+func NewServer(handler func(ipc.Message) ipc.Message) (*Server, error) {
 	socketPath := getSocketPath()
 
 	// Ensure directory exists
@@ -33,6 +34,7 @@ func NewServer() (*Server, error) {
 	return &Server{
 		socketPath: socketPath,
 		quit:       make(chan struct{}),
+		handler:    handler,
 	}, nil
 }
 
@@ -93,14 +95,18 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		log.Printf("Received message: %+v", msg)
-		// For now, just echo a simple response
-		// In a real implementation, this would be passed to the daemon
-		resp := ipc.Message{
-			Type: "response",
-			Payload: ipc.Response{
-				Status: "ok",
-				Data:   "Message received",
-			},
+		
+		var resp ipc.Message
+		if s.handler != nil {
+			resp = s.handler(msg)
+		} else {
+			resp = ipc.Message{
+				Type: "response",
+				Payload: ipc.Response{
+					Status: "error",
+					Data:   "No message handler configured",
+				},
+			}
 		}
 		
 		encoder := json.NewEncoder(conn)

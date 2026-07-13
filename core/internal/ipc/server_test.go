@@ -14,7 +14,18 @@ func TestIPCServer(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("XDG_RUNTIME_DIR", tempDir)
 
-	server, err := NewServer()
+	// Mock handler that returns static response
+	mockHandler := func(msg sdkipc.Message) sdkipc.Message {
+		return sdkipc.Message{
+			Type: "response",
+			Payload: sdkipc.Response{
+				Status: "ok",
+				Data:   "Message received",
+			},
+		}
+	}
+
+	server, err := NewServer(mockHandler)
 	if err != nil {
 		t.Fatalf("failed to create IPC server: %v", err)
 	}

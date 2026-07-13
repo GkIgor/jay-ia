@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/GkIgor/jay-ia/sdk/ipc"
 )
@@ -28,7 +29,19 @@ func getSocketPath() string {
 
 func main() {
 	socketPath := getSocketPath()
-	log.Printf("Connecting to Jay Core daemon at %s...", socketPath)
+
+	// Parse arguments
+	inputData := "Hello from Jay CLI client!"
+	action := "ping"
+	if len(os.Args) > 1 {
+		inputData = strings.Join(os.Args[1:], " ")
+		if strings.HasPrefix(inputData, "/") {
+			parts := strings.SplitN(inputData, " ", 2)
+			action = strings.TrimPrefix(parts[0], "/")
+		} else {
+			action = "chat"
+		}
+	}
 
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
@@ -41,17 +54,15 @@ func main() {
 	}()
 
 	cmd := ipc.Command{
-		ID:     "cli-ping-1",
-		Action: "ping",
-		Data:   "Hello from Jay CLI client!",
+		ID:     "cli-cmd-1",
+		Action: action,
+		Data:   inputData,
 	}
 
 	msg := ipc.Message{
 		Type:    "command",
 		Payload: cmd,
 	}
-
-	log.Printf("Sending command: %+v", msg)
 
 	encoder := json.NewEncoder(conn)
 	if err := encoder.Encode(msg); err != nil {
@@ -64,8 +75,6 @@ func main() {
 		log.Fatalf("Failed to read/decode response: %v", err)
 	}
 
-	log.Printf("Received response wrapper: %+v", resp)
-
 	payloadBytes, err := json.Marshal(resp.Payload)
 	if err != nil {
 		log.Fatalf("Failed to marshal payload: %v", err)
@@ -75,9 +84,10 @@ func main() {
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		fmt.Printf("Raw Payload: %s\n", string(payloadBytes))
 	} else {
-		fmt.Printf("Response Status: %s\n", responsePayload.Status)
-		if responsePayload.Data != nil {
-			fmt.Printf("Response Data: %v\n", responsePayload.Data)
+		if responsePayload.Status == "error" {
+			fmt.Printf("Error: %v\n", responsePayload.Data)
+		} else {
+			fmt.Printf("%v\n", responsePayload.Data)
 		}
 	}
 }
