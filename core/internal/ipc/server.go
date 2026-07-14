@@ -7,9 +7,16 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/GkIgor/jay-ia/sdk/ipc"
 )
+
+// IPCEvent represents a strongly-typed push event
+type IPCEvent struct {
+	Type    string      `json:"type"`
+	Payload interface{} `json:"payload,omitempty"`
+}
 
 // Server handles IPC connections
 type Server struct {
@@ -17,35 +24,35 @@ type Server struct {
 	listener   net.Listener
 	quit       chan struct{}
 	handler    func(ipc.Message) ipc.Message
+
+	mu      sync.RWMutex
+	clients map[net.Conn]struct{}
 }
 
-// NewServer creates a new IPC server. It prefers XDG_RUNTIME_DIR on Linux.
+// NewServer creates a new IPC server.
 func NewServer(handler func(ipc.Message) ipc.Message) (*Server, error) {
 	socketPath := getSocketPath()
 
-	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0700); err != nil {
 		return nil, fmt.Errorf("failed to create socket directory: %w", err)
 	}
 
-	// Remove existing socket if it exists
 	_ = os.Remove(socketPath)
 
 	return &Server{
 		socketPath: socketPath,
 		quit:       make(chan struct{}),
 		handler:    handler,
+		clients:    make(map[net.Conn]struct{}),
 	}, nil
 }
 
 func getSocketPath() string {
-	// XDG_RUNTIME_DIR is standard for Linux runtime files
 	xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR")
 	if xdgRuntimeDir != "" {
 		return filepath.Join(xdgRuntimeDir, "jay", "jay.sock")
 	}
 
-	// Fallback/compatibility layer for Mac/Windows or missing XDG
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "/tmp/jay/jay.sock"
@@ -83,7 +90,18 @@ func (s *Server) acceptLoop() {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
+	s.mu.Lock()
+	s.clients[conn] = struct{}{}
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		delete(s.clients, conn)
+		s.mu.Unlock()
+		conn.Close()
+		log.Printf("IPC Client disconnected: %s", conn.RemoteAddr())
+	}()
+
 	log.Printf("IPC Client connected: %s", conn.RemoteAddr())
 
 	decoder := json.NewDecoder(conn)
@@ -95,7 +113,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		log.Printf("Received message: %+v", msg)
-		
+
 		var resp ipc.Message
 		if s.handler != nil {
 			resp = s.handler(msg)
@@ -108,11 +126,25 @@ func (s *Server) handleConnection(conn net.Conn) {
 				},
 			}
 		}
-		
+
+		// Send synchronous response back
 		encoder := json.NewEncoder(conn)
 		if err := encoder.Encode(resp); err != nil {
 			log.Printf("Failed to encode response: %v", err)
 			return
+		}
+	}
+}
+
+// Broadcast sends an event to all connected clients.
+func (s *Server) Broadcast(event IPCEvent) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for conn := range s.clients {
+		encoder := json.NewEncoder(conn)
+		if err := encoder.Encode(event); err != nil {
+			log.Printf("Failed to broadcast to %s: %v", conn.RemoteAddr(), err)
 		}
 	}
 }

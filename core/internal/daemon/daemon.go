@@ -9,7 +9,9 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/GkIgor/jay-ia/core/internal/bus"
 	"github.com/GkIgor/jay-ia/core/internal/ipc"
 	"github.com/GkIgor/jay-ia/core/internal/memory"
 	"github.com/GkIgor/jay-ia/core/internal/planner"
@@ -23,22 +25,44 @@ type Daemon struct {
 	memoryStore  memory.MemoryStore
 	ipcServer    *ipc.Server
 	planner      planner.Planner
+	bus          *bus.InternalBus
 }
 
 // New creates a new Jay Daemon
 func New() (*Daemon, error) {
+	b := bus.NewInternalBus()
+
 	d := &Daemon{
 		currentState: state.Idle,
 		memoryStore:  memory.NewInMemoryStore(),
 		planner:      planner.NewSimplePlanner(),
+		bus:          b,
 	}
 
-	// Create IPC server with the daemon's message handler callback
 	ipcServer, err := ipc.NewServer(d.handleIPCMessage)
 	if err != nil {
 		return nil, err
 	}
 	d.ipcServer = ipcServer
+
+	// Subscribe IPC Server to the InternalBus
+	ch := d.bus.Subscribe(100)
+	go func() {
+		for ev := range ch {
+			switch e := ev.(type) {
+			case bus.StateChangedEvent:
+				d.ipcServer.Broadcast(ipc.IPCEvent{
+					Type:    e.EventName(),
+					Payload: map[string]string{"state": strings.ToLower(e.NewState)},
+				})
+			case bus.AnimationPlayEvent:
+				d.ipcServer.Broadcast(ipc.IPCEvent{
+					Type:    e.EventName(),
+					Payload: map[string]string{"animation": e.Animation},
+				})
+			}
+		}
+	}()
 
 	return d, nil
 }
@@ -51,7 +75,8 @@ func (d *Daemon) Start() error {
 		return err
 	}
 
-	// Wait for termination signal
+	d.setState(state.Idle)
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -70,6 +95,12 @@ func (d *Daemon) Stop() {
 	log.Println("Jay Daemon stopped.")
 }
 
+// setState changes the internal state and publishes the event to the bus
+func (d *Daemon) setState(s state.State) {
+	d.currentState = s
+	d.bus.Publish(bus.StateChangedEvent{NewState: s.String()})
+}
+
 // handleIPCMessage acts as the main orchestrator for commands received from IPC.
 func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	if msg.Type != "command" {
@@ -82,7 +113,6 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		}
 	}
 
-	// Unmarshal command payload
 	payloadBytes, err := json.Marshal(msg.Payload)
 	if err != nil {
 		return d.errorResponse("internal_error", "failed to process command payload")
@@ -94,8 +124,8 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	}
 
 	// 1. Resolve/Prepare PlanningContext (Perception phase)
-	d.currentState = state.Thinking
-	defer func() { d.currentState = state.Idle }()
+	d.setState(state.Thinking)
+	time.Sleep(2 * time.Second)
 
 	planCtx := planner.PlanningContext{
 		WorkingMemory: make(map[string]string),
@@ -108,12 +138,10 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		}
 	}
 
-	// If no data string but Action exists, construct command-style input
 	if input == "" && cmd.Action != "" {
 		input = "/" + cmd.Action
 	}
 
-	// If the command is recall, pre-fetch memory key so it's ready in the context
 	if cmd.Action == "recall" || strings.HasPrefix(input, "/recall") {
 		var key string
 		if strings.HasPrefix(input, "/recall") {
@@ -138,11 +166,13 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	// 2. Call Planner (pure function)
 	plan, err := d.planner.Plan(context.Background(), input, planCtx)
 	if err != nil {
+		d.setState(state.Idle)
 		return d.errorResponse(cmd.ID, fmt.Sprintf("planning error: %v", err))
 	}
 
-	// 3. Execute Steps (Side-effects execution phase)
-	d.currentState = state.Executing
+	// Execute Steps (Side-effects execution phase)
+	d.setState(state.Executing)
+	time.Sleep(2 * time.Second)
 	var responseText string
 
 	for _, step := range plan.Steps {
@@ -163,6 +193,12 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 			responseText = "Escalated to human."
 		}
 	}
+
+	// Emitir uma animação teste para o C++
+	d.bus.Publish(bus.AnimationPlayEvent{Animation: "smile"})
+	time.Sleep(1 * time.Second)
+
+	d.setState(state.Idle)
 
 	return sdkipc.Message{
 		Type: "response",
