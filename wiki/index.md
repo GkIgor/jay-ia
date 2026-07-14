@@ -162,6 +162,7 @@ ADRs atuais:
 - [`decisions/0003-openclaw-executor.md`](./decisions/0003-openclaw-executor.md)
 - [`decisions/0004-wiki-source-of-truth.md`](./decisions/0004-wiki-source-of-truth.md)
 - [`decisions/0005-core-technology-stack.md`](./decisions/0005-core-technology-stack.md)
+- [`decisions/0006-explicit-and-sandboxed-tools.md`](./decisions/0006-explicit-and-sandboxed-tools.md)
 
 Armazena todas as decisões arquiteturais do projeto.
 
