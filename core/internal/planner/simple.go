@@ -100,6 +100,56 @@ func (p *SimplePlanner) Plan(ctx context.Context, input string, planCtx Planning
 				},
 			}, nil
 
+		case "/write":
+			if len(parts) < 2 {
+				return p.respondWithError("Usage: /write <path> <content>")
+			}
+			argsParts := strings.SplitN(parts[1], " ", 2)
+			if len(argsParts) < 2 {
+				return p.respondWithError("Usage: /write <path> <content>")
+			}
+			path := strings.TrimSpace(argsParts[0])
+			content := strings.TrimSpace(argsParts[1])
+			return &Plan{
+				Steps: []Step{
+					{
+						Type: StepToolExecute,
+						Params: map[string]any{
+							"tool": "fs.write_file",
+							"args": map[string]any{
+								"path":    path,
+								"content": content,
+							},
+						},
+					},
+					{
+						Type: StepRespond,
+						Params: map[string]any{
+							"text": fmt.Sprintf("File written to %s.", path),
+						},
+					},
+				},
+			}, nil
+
+		case "/read":
+			if len(parts) < 2 {
+				return p.respondWithError("Usage: /read <path>")
+			}
+			path := strings.TrimSpace(parts[1])
+			return &Plan{
+				Steps: []Step{
+					{
+						Type: StepToolExecute,
+						Params: map[string]any{
+							"tool": "fs.read_file",
+							"args": map[string]any{
+								"path": path,
+							},
+						},
+					},
+				},
+			}, nil
+
 		default:
 			return &Plan{
 				Steps: []Step{

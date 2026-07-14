@@ -18,3 +18,23 @@ type AnimationPlayEvent struct {
 }
 
 func (e AnimationPlayEvent) EventName() string { return "animation.play" }
+
+// ToolProgressEvent is emitted when a running tool reports incremental progress
+type ToolProgressEvent struct {
+	ToolName string
+	State    string
+	Percent  float64
+	Message  string
+}
+
+func (e ToolProgressEvent) EventName() string { return "tool.progress" }
+
+// ToolCompletedEvent is emitted when a tool finishes execution
+type ToolCompletedEvent struct {
+	ToolName string
+	Success  bool
+	Output   any
+	Error    string
+}
+
+func (e ToolCompletedEvent) EventName() string { return "tool.completed" }

@@ -16,6 +16,7 @@ import (
 	"github.com/GkIgor/jay-ia/core/internal/memory"
 	"github.com/GkIgor/jay-ia/core/internal/planner"
 	"github.com/GkIgor/jay-ia/core/internal/state"
+	"github.com/GkIgor/jay-ia/core/internal/tools"
 	sdkipc "github.com/GkIgor/jay-ia/sdk/ipc"
 )
 
@@ -26,17 +27,27 @@ type Daemon struct {
 	ipcServer    *ipc.Server
 	planner      planner.Planner
 	bus          *bus.InternalBus
+	toolBus      *tools.ToolBus
 }
 
 // New creates a new Jay Daemon
 func New() (*Daemon, error) {
 	b := bus.NewInternalBus()
+	tb := tools.NewToolBus()
+
+	// Registra provedor nativo e ferramentas explícitas de arquivos
+	np := tools.NewNativeProvider()
+	np.RegisterTool(tools.ReadFileTool{})
+	np.RegisterTool(tools.WriteFileTool{})
+	np.RegisterTool(tools.ListDirTool{})
+	tb.RegisterProvider(np)
 
 	d := &Daemon{
 		currentState: state.Idle,
 		memoryStore:  memory.NewInMemoryStore(),
 		planner:      planner.NewSimplePlanner(),
 		bus:          b,
+		toolBus:      tb,
 	}
 
 	ipcServer, err := ipc.NewServer(d.handleIPCMessage)
@@ -59,6 +70,26 @@ func New() (*Daemon, error) {
 				d.ipcServer.Broadcast(ipc.IPCEvent{
 					Type:    e.EventName(),
 					Payload: map[string]string{"animation": e.Animation},
+				})
+			case bus.ToolProgressEvent:
+				d.ipcServer.Broadcast(ipc.IPCEvent{
+					Type: e.EventName(),
+					Payload: map[string]any{
+						"tool":    e.ToolName,
+						"state":   e.State,
+						"percent": e.Percent,
+						"message": e.Message,
+					},
+				})
+			case bus.ToolCompletedEvent:
+				d.ipcServer.Broadcast(ipc.IPCEvent{
+					Type: e.EventName(),
+					Payload: map[string]any{
+						"tool":    e.ToolName,
+						"success": e.Success,
+						"output":  e.Output,
+						"error":   e.Error,
+					},
 				})
 			}
 		}
@@ -132,14 +163,17 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	}
 
 	input := ""
-	if cmd.Data != nil {
+	if cmd.Action != "" {
+		input = "/" + cmd.Action
+		if cmd.Data != nil {
+			if s, ok := cmd.Data.(string); ok && s != "" {
+				input += " " + s
+			}
+		}
+	} else if cmd.Data != nil {
 		if s, ok := cmd.Data.(string); ok {
 			input = s
 		}
-	}
-
-	if input == "" && cmd.Action != "" {
-		input = "/" + cmd.Action
 	}
 
 	if cmd.Action == "recall" || strings.HasPrefix(input, "/recall") {
@@ -170,7 +204,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		return d.errorResponse(cmd.ID, fmt.Sprintf("planning error: %v", err))
 	}
 
-	// Execute Steps (Side-effects execution phase)
+	// 3. Execute Steps (Side-effects execution phase)
 	d.setState(state.Executing)
 	time.Sleep(2 * time.Second)
 	var responseText string
@@ -179,7 +213,11 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		switch step.Type {
 		case planner.StepRespond:
 			if text, ok := step.Params["text"].(string); ok {
-				responseText = text
+				if responseText != "" {
+					responseText += "\n" + text
+				} else {
+					responseText = text
+				}
 			}
 		case planner.StepMemoryPut:
 			key, kOk := step.Params["key"].(string)
@@ -191,6 +229,81 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 			}
 		case planner.StepHumanEscalate:
 			responseText = "Escalated to human."
+
+		case planner.StepToolExecute:
+			toolName, tOk := step.Params["tool"].(string)
+			argsVal, aOk := step.Params["args"]
+			if tOk && aOk {
+				// Converte argumentos para o tipo esperado
+				argsMap := make(map[string]any)
+				if m, ok := argsVal.(map[string]any); ok {
+					argsMap = m
+				} else if m, ok := argsVal.(map[string]interface{}); ok {
+					argsMap = m
+				}
+
+				progressChan := make(chan tools.ProgressUpdate, 10)
+
+				// Consome canal de progresso concorrentemente
+				go func() {
+					for up := range progressChan {
+						d.bus.Publish(bus.ToolProgressEvent{
+							ToolName: toolName,
+							State:    string(up.State),
+							Percent:  up.Percent,
+							Message:  up.Message,
+						})
+					}
+				}()
+
+				res, err := d.toolBus.Execute(context.Background(), toolName, tools.Request{
+					Args:     argsMap,
+					Progress: progressChan,
+				})
+				close(progressChan)
+
+				success := err == nil && res.Success
+				var out any
+				var errStr string
+				if err != nil {
+					errStr = err.Error()
+				} else {
+					out = res.Output
+					errStr = res.Error
+				}
+
+				// Emite conclusão da ferramenta no bus
+				d.bus.Publish(bus.ToolCompletedEvent{
+					ToolName: toolName,
+					Success:  success,
+					Output:   out,
+					Error:    errStr,
+				})
+
+				// Anexa output textual na resposta para fins informativos
+				if success && out != nil {
+					if outStr, ok := out.(string); ok {
+						if responseText != "" {
+							responseText += "\n" + outStr
+						} else {
+							responseText = outStr
+						}
+					} else if outSlice, ok := out.([]string); ok {
+						outJoined := strings.Join(outSlice, ", ")
+						if responseText != "" {
+							responseText += "\n" + outJoined
+						} else {
+							responseText = outJoined
+						}
+					}
+				} else if !success {
+					if responseText != "" {
+						responseText += fmt.Sprintf("\n[Erro na Ferramenta: %s]", errStr)
+					} else {
+						responseText = fmt.Sprintf("[Erro na Ferramenta: %s]", errStr)
+					}
+				}
+			}
 		}
 	}
 

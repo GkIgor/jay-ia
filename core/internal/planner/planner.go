@@ -10,6 +10,7 @@ const (
 	StepRespond       StepType = "respond"
 	StepMemoryPut     StepType = "memory_put"
 	StepHumanEscalate StepType = "human_escalate"
+	StepToolExecute   StepType = "tool_execute"
 )
 
 type Step struct {
