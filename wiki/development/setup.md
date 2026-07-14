@@ -2,13 +2,31 @@
 
 ## Estado atual
 
-O repositório ainda está em fase de definição arquitetural e documental.
+O repositório está na Fase 3 de desenvolvimento (Planner Puro e Push IPC estruturado).
 
-## Pré-requisito atual
+## Pré-requisitos e Dependências
 
-Para o desenvolvimento do `core`, `cli` e `sdk`, a linguagem base escolhida foi Go (ver ADR 0005). O colaborador precisará ter o compilador do Go (1.21+) instalado no seu ambiente.
+Para colaborar no desenvolvimento da Jay, é necessário instalar as seguintes ferramentas no seu ambiente local:
 
-Antes de preparar qualquer ambiente de desenvolvimento, o colaborador precisa entender a arquitetura pretendida.
+### 1. Backend (Go Core)
+- **Go (1.21+)**: Linguagem base do daemon, cli e sdk.
+- **socat** (opcional, para testes de socket): `sudo apt install socat`
+
+### 2. Frontend (C++ Avatar)
+- **Clang (18+)**: Compilador necessário com suporte nativo a C++23 Modules.
+- **clang-tools-18**: Requerido para a varredura e mapeamento de dependências de módulos do C++ (`clang-scan-deps`). Instale via:
+  ```bash
+  sudo apt install clang-tools-18
+  ```
+- **CMake (3.28+)**: Gerador de build que suporta nativamente C++ CXX_MODULES.
+- **Ninja Build System**: Gerador recomendado para compilação concorrente rápida e compatível com mapeamento de módulos C++. Instale via:
+  ```bash
+  sudo apt install ninja-build
+  ```
+- **Raylib & nlohmann-json**: São baixados e compilados automaticamente pelo CMake através de `FetchContent`. No entanto, para compilar a Raylib no Linux, certifique-se de ter as seguintes bibliotecas gráficas de desenvolvimento instaladas:
+  ```bash
+  sudo apt install libasound2-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxkbcommon-dev
+  ```
 
 ## Leitura obrigatória
 
@@ -29,7 +47,3 @@ Antes de criar setup definitivo, qualquer colaborador deve consultar:
 ## Regra operacional
 
 Se uma tarefa exigir uma decisão ainda não formalizada, o trabalho deve parar no ponto de ambiguidade, solicitar orientação humana e registrar o resultado na wiki antes de seguir.
-
-## Observação
-
-Quando o ambiente real de desenvolvimento for formalizado, este documento deverá ser atualizado com comandos e pré-requisitos concretos.
