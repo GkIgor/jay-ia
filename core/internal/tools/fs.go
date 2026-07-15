@@ -64,6 +64,7 @@ func (t WriteFileTool) Describe() Definition {
 	return Definition{
 		Name:        "fs.write_file",
 		Description: "Escreve ou sobrescreve o conteúdo de um arquivo local.",
+		Permissions: []string{"fs.write"},
 		Parameters: []Parameter{
 			{
 				Name:        "path",

@@ -26,7 +26,7 @@ type Server struct {
 	handler    func(ipc.Message) ipc.Message
 
 	mu      sync.RWMutex
-	clients map[net.Conn]struct{}
+	clients map[net.Conn]chan interface{}
 }
 
 // NewServer creates a new IPC server.
@@ -43,7 +43,7 @@ func NewServer(handler func(ipc.Message) ipc.Message) (*Server, error) {
 		socketPath: socketPath,
 		quit:       make(chan struct{}),
 		handler:    handler,
-		clients:    make(map[net.Conn]struct{}),
+		clients:    make(map[net.Conn]chan interface{}),
 	}, nil
 }
 
@@ -90,19 +90,34 @@ func (s *Server) acceptLoop() {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
+	writeChan := make(chan interface{}, 100)
+
 	s.mu.Lock()
-	s.clients[conn] = struct{}{}
+	s.clients[conn] = writeChan
 	s.mu.Unlock()
 
 	defer func() {
 		s.mu.Lock()
 		delete(s.clients, conn)
 		s.mu.Unlock()
+		close(writeChan)
 		conn.Close()
 		log.Printf("IPC Client disconnected: %s", conn.RemoteAddr())
 	}()
 
 	log.Printf("IPC Client connected: %s", conn.RemoteAddr())
+
+	// Start connection writer loop to serialize writes thread-safely
+	go func() {
+		encoder := json.NewEncoder(conn)
+		for msg := range writeChan {
+			if err := encoder.Encode(msg); err != nil {
+				log.Printf("Failed to encode message: %v", err)
+				conn.Close()
+				return
+			}
+		}
+	}()
 
 	decoder := json.NewDecoder(conn)
 	for {
@@ -114,25 +129,29 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("Received message: %+v", msg)
 
-		var resp ipc.Message
-		if s.handler != nil {
-			resp = s.handler(msg)
-		} else {
-			resp = ipc.Message{
-				Type: "response",
-				Payload: ipc.Response{
-					Status: "error",
-					Data:   "No message handler configured",
-				},
+		// Process commands concurrently so the read loop remains free
+		// to process subsequent messages (like permission responses).
+		go func(m ipc.Message) {
+			var resp ipc.Message
+			if s.handler != nil {
+				resp = s.handler(m)
+			} else {
+				resp = ipc.Message{
+					Type: "response",
+					Payload: ipc.Response{
+						Status: "error",
+						Data:   "No message handler configured",
+					},
+				}
 			}
-		}
 
-		// Send synchronous response back
-		encoder := json.NewEncoder(conn)
-		if err := encoder.Encode(resp); err != nil {
-			log.Printf("Failed to encode response: %v", err)
-			return
-		}
+			// Queue response to the writer loop safely
+			select {
+			case writeChan <- resp:
+			default:
+				log.Printf("Write queue full for %s, dropping response", conn.RemoteAddr())
+			}
+		}(msg)
 	}
 }
 
@@ -141,10 +160,11 @@ func (s *Server) Broadcast(event IPCEvent) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for conn := range s.clients {
-		encoder := json.NewEncoder(conn)
-		if err := encoder.Encode(event); err != nil {
-			log.Printf("Failed to broadcast to %s: %v", conn.RemoteAddr(), err)
+	for _, writeChan := range s.clients {
+		select {
+		case writeChan <- event:
+		default:
+			log.Printf("Broadcast queue full, dropping event")
 		}
 	}
 }

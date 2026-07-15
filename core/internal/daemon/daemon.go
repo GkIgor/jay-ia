@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -20,14 +22,20 @@ import (
 	sdkipc "github.com/GkIgor/jay-ia/sdk/ipc"
 )
 
+// PermissionTimeout define o tempo limite de aprovação da interface
+const PermissionTimeout = 30 * time.Second
+
 // Daemon coordinates all core components
 type Daemon struct {
-	currentState state.State
-	memoryStore  memory.MemoryStore
-	ipcServer    *ipc.Server
-	planner      planner.Planner
-	bus          *bus.InternalBus
-	toolBus      *tools.ToolBus
+	currentState   state.State
+	memoryStore    memory.MemoryStore
+	ipcServer      *ipc.Server
+	planner        planner.Planner
+	bus            *bus.InternalBus
+	toolBus        *tools.ToolBus
+	pendingPermsMu sync.Mutex
+	pendingPerms   map[string]chan bool
+	nextRequestID  uint64
 }
 
 // New creates a new Jay Daemon
@@ -35,7 +43,7 @@ func New() (*Daemon, error) {
 	b := bus.NewInternalBus()
 	tb := tools.NewToolBus()
 
-	// Registra provedor nativo e ferramentas explícitas de arquivos
+	// Registra provedor nativo e ferramentas explíticas de arquivos
 	np := tools.NewNativeProvider()
 	np.RegisterTool(tools.ReadFileTool{})
 	np.RegisterTool(tools.WriteFileTool{})
@@ -48,6 +56,7 @@ func New() (*Daemon, error) {
 		planner:      planner.NewSimplePlanner(),
 		bus:          b,
 		toolBus:      tb,
+		pendingPerms: make(map[string]chan bool),
 	}
 
 	ipcServer, err := ipc.NewServer(d.handleIPCMessage)
@@ -91,6 +100,14 @@ func New() (*Daemon, error) {
 						"error":   e.Error,
 					},
 				})
+			case bus.PermissionRequestedEvent:
+				d.ipcServer.Broadcast(ipc.IPCEvent{
+					Type: "request.permission",
+					Payload: map[string]string{
+						"ref_id":     e.RequestID,
+						"permission": e.Permission,
+					},
+				})
 			}
 		}
 	}()
@@ -132,8 +149,69 @@ func (d *Daemon) setState(s state.State) {
 	d.bus.Publish(bus.StateChangedEvent{NewState: s.String()})
 }
 
+// RequestPermission publica a solicitação no bus e bloqueia aguardando a resposta do Frontend
+func (d *Daemon) RequestPermission(ctx context.Context, permission string) (bool, error) {
+	d.pendingPermsMu.Lock()
+	reqID := fmt.Sprintf("req_%d", atomic.AddUint64(&d.nextRequestID, 1))
+	ch := make(chan bool, 1)
+	d.pendingPerms[reqID] = ch
+	d.pendingPermsMu.Unlock()
+
+	// Publica a intenção conceitualmente no barramento
+	d.bus.Publish(bus.PermissionRequestedEvent{
+		RequestID:  reqID,
+		Permission: permission,
+	})
+
+	log.Printf("Permission '%s' requested (RequestID: %s). Waiting approval...", permission, reqID)
+
+	var allowed bool
+	select {
+	case allowed = <-ch:
+	case <-time.After(PermissionTimeout):
+		log.Printf("Permission '%s' (RequestID: %s) timed out after %v", permission, reqID, PermissionTimeout)
+		allowed = false
+	}
+
+	d.pendingPermsMu.Lock()
+	delete(d.pendingPerms, reqID)
+	d.pendingPermsMu.Unlock()
+
+	return allowed, nil
+}
+
 // handleIPCMessage acts as the main orchestrator for commands received from IPC.
 func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
+	// Trata a resposta de consentimento do usuário vinda da interface
+	if msg.Type == "permission.response" {
+		payloadBytes, err := json.Marshal(msg.Payload)
+		if err != nil {
+			return d.errorResponse("internal_error", "failed to process permission response")
+		}
+		var resp struct {
+			RefID   string `json:"ref_id"`
+			Allowed bool   `json:"allowed"`
+		}
+		if err := json.Unmarshal(payloadBytes, &resp); err == nil {
+			d.pendingPermsMu.Lock()
+			ch, exists := d.pendingPerms[resp.RefID]
+			d.pendingPermsMu.Unlock()
+			if exists {
+				select {
+				case ch <- resp.Allowed:
+				default:
+				}
+			}
+		}
+		return sdkipc.Message{
+			Type: "response",
+			Payload: sdkipc.Response{
+				Status: "ok",
+				Data:   "permission response processed",
+			},
+		}
+	}
+
 	if msg.Type != "command" {
 		return sdkipc.Message{
 			Type: "error",
@@ -209,6 +287,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	time.Sleep(2 * time.Second)
 	var responseText string
 
+planLoop:
 	for _, step := range plan.Steps {
 		switch step.Type {
 		case planner.StepRespond:
@@ -234,12 +313,46 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 			toolName, tOk := step.Params["tool"].(string)
 			argsVal, aOk := step.Params["args"]
 			if tOk && aOk {
-				// Converte argumentos para o tipo esperado
 				argsMap := make(map[string]any)
 				if m, ok := argsVal.(map[string]any); ok {
 					argsMap = m
 				} else if m, ok := argsVal.(map[string]interface{}); ok {
 					argsMap = m
+				}
+
+				// Obtém metadados da ferramenta para checar permissões
+				tool, exists := d.toolBus.GetTool(toolName)
+				if !exists {
+					if responseText != "" {
+						responseText += fmt.Sprintf("\n[Erro na Ferramenta: %s não encontrada]", toolName)
+					} else {
+						responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", toolName)
+					}
+					break planLoop
+				}
+
+				// Intercepta e valida consentimento de segurança de forma centralizada no Daemon
+				permissionsAllowed := true
+				for _, perm := range tool.Describe().Permissions {
+					allowed, err := d.RequestPermission(context.Background(), perm)
+					if err != nil || !allowed {
+						permissionsAllowed = false
+						break
+					}
+				}
+
+				if !permissionsAllowed {
+					d.bus.Publish(bus.ToolCompletedEvent{
+						ToolName: toolName,
+						Success:  false,
+						Error:    "permission denied by user",
+					})
+					if responseText != "" {
+						responseText += "\n[Erro na Ferramenta: permissão negada pelo usuário]"
+					} else {
+						responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
+					}
+					break planLoop
 				}
 
 				progressChan := make(chan tools.ProgressUpdate, 10)
@@ -302,6 +415,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 					} else {
 						responseText = fmt.Sprintf("[Erro na Ferramenta: %s]", errStr)
 					}
+					break planLoop
 				}
 			}
 		}

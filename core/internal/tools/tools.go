@@ -17,6 +17,7 @@ type Definition struct {
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Parameters  []Parameter `json:"parameters,omitempty"`
+	Permissions []string    `json:"permissions,omitempty"`
 }
 
 // Result define o output final da ferramenta.

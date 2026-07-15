@@ -38,3 +38,11 @@ type ToolCompletedEvent struct {
 }
 
 func (e ToolCompletedEvent) EventName() string { return "tool.completed" }
+
+// PermissionRequestedEvent is emitted when a tool requires user consent
+type PermissionRequestedEvent struct {
+	RequestID  string
+	Permission string
+}
+
+func (e PermissionRequestedEvent) EventName() string { return "permission.request" }

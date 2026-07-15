@@ -64,6 +64,14 @@ func (tb *ToolBus) Execute(ctx context.Context, name string, req Request) (Resul
 	return tool.Execute(ctx, req)
 }
 
+// GetTool recupera uma ferramenta pelo nome do cache de ferramentas.
+func (tb *ToolBus) GetTool(name string) (Tool, bool) {
+	tb.mu.RLock()
+	defer tb.mu.RUnlock()
+	t, ok := tb.tools[name]
+	return t, ok
+}
+
 // ListAvailableTools expõe as definições de todas as ferramentas catalogadas.
 func (tb *ToolBus) ListAvailableTools() []Definition {
 	tb.mu.RLock()
