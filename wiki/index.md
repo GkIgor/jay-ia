@@ -163,6 +163,7 @@ ADRs atuais:
 - [`decisions/0004-wiki-source-of-truth.md`](./decisions/0004-wiki-source-of-truth.md)
 - [`decisions/0005-core-technology-stack.md`](./decisions/0005-core-technology-stack.md)
 - [`decisions/0006-explicit-and-sandboxed-tools.md`](./decisions/0006-explicit-and-sandboxed-tools.md)
+- [`decisions/0007-tools-isolated-from-ui.md`](./decisions/0007-tools-isolated-from-ui.md)
 
 Armazena todas as decisões arquiteturais do projeto.
 
