@@ -39,6 +39,16 @@ Good destinations:
 - delivery planning: [`wiki/prds/`](wiki/prds/) or [`wiki/phases/`](wiki/phases/)
 - operational follow-ups, deferred work, and test/mocks/TODO tracking: the most relevant wiki page for the topic, or a dedicated entry in [`wiki/future/`](wiki/future/), [`wiki/development/`](wiki/development/), or the applicable ADR/PRD
 
+## Processo de Planejamento e Sincronização da Wiki (CRÍTICO)
+
+O planejamento e a execução do agente devem sempre refletir e atualizar a wiki.
+Siga estritamente as regras abaixo:
+
+1. **Plano na Wiki**: Todo progresso de planejamento e evolução do projeto deve ser registrado na wiki (como em `phases/`, `prds/` ou documentação do componente).
+2. **Steps e Subtasks**: Para cada plano em andamento, quebre a execução estruturalmente em *steps*, *tasks* e *subtasks* granulares documentadas na própria wiki (ou em um log vinculado a ela).
+3. **Atualização Pós-Modificação**: Sempre que finalizar uma modificação de código ou comportamento sistêmico, consulte as páginas da wiki correspondentes e atualize-as para garantir que refletem o estado funcional atual.
+4. **Wiki Sempre Atualizada**: A wiki é a fonte primária da verdade. É inaceitável que o código evolua enquanto a documentação fica defasada. A atualização não é uma etapa opcional, mas o pilar obrigatório do seu ciclo contínuo.
+
 ## Project Structure
 
 Current repository structure is documentation-first:
