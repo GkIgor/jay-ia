@@ -1,28 +1,15 @@
 # OpenClaw
 
-## Papel no sistema
+# OpenClaw
 
-OpenClaw é tratado como executor de ferramentas.
+## Papel Futuro no Sistema
 
-Ele não representa:
+O OpenClaw não faz parte da arquitetura fundamental atual da Jay. 
 
-- identidade da Jay
-- memória
-- conhecimento
-- planejamento central
+Este documento existe apenas para documentar uma possível integração futura através da interface **Tool Provider** (ver [`tool-provider.md`](tool-provider.md)).
 
-## Uso esperado
+## Contexto
 
-OpenClaw pode ser um provider do barramento de ferramentas da Jay para:
+Embora o OpenClaw seja um projeto altamente compatível com a visão de longo prazo da Jay, utilizá-lo como camada obrigatória para a Fase 1 adicionaria complexidade desnecessária (Gateway, skills, ciclo de vida).
 
-- shell
-- skills
-- MCP
-- automação
-- integrações externas
-
-## Regra de desacoplamento
-
-Jay não deve depender estruturalmente de OpenClaw.
-
-O sistema deve permitir a troca futura por outros executores sem reescrever o Core.
+Quando houver necessidade de funcionalidades mais avançadas de orquestração de plugins externos com forte controle e isolamento, o OpenClaw poderá coexistir ou substituir executores mais simples, mantendo-se o protagonismo do Tool Provider.

@@ -84,6 +84,7 @@ Documentos principais:
 - [`architecture/learning.md`](./architecture/learning.md)
 - [`architecture/action-bus.md`](./architecture/action-bus.md)
 - [`architecture/frontend.md`](./architecture/frontend.md)
+- [`architecture/tool-provider.md`](./architecture/tool-provider.md)
 - [`architecture/openclaw.md`](./architecture/openclaw.md)
 - [`architecture/container.md`](./architecture/container.md)
 - [`architecture/llm-router.md`](./architecture/llm-router.md)
@@ -164,6 +165,7 @@ ADRs atuais:
 - [`decisions/0005-core-technology-stack.md`](./decisions/0005-core-technology-stack.md)
 - [`decisions/0006-explicit-and-sandboxed-tools.md`](./decisions/0006-explicit-and-sandboxed-tools.md)
 - [`decisions/0007-tools-isolated-from-ui.md`](./decisions/0007-tools-isolated-from-ui.md)
+- [`decisions/0008-native-tool-provider.md`](./decisions/0008-native-tool-provider.md)
 
 Armazena todas as decisões arquiteturais do projeto.
 

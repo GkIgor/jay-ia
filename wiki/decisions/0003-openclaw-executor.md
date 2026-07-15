@@ -2,7 +2,7 @@
 
 ## Status
 
-Aceita
+Postergada (Superseded by ADR 0008 for Phase 1)
 
 ## Contexto
 
