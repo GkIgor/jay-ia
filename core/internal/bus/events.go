@@ -43,6 +43,7 @@ func (e ToolCompletedEvent) EventName() string { return "tool.completed" }
 type PermissionRequestedEvent struct {
 	RequestID  string
 	Permission string
+	Prompt     string
 }
 
 func (e PermissionRequestedEvent) EventName() string { return "permission.request" }

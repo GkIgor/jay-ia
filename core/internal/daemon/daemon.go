@@ -103,9 +103,10 @@ func New() (*Daemon, error) {
 			case bus.PermissionRequestedEvent:
 				d.ipcServer.Broadcast(ipc.IPCEvent{
 					Type: "request.permission",
-					Payload: map[string]string{
+					Payload: map[string]any{
 						"ref_id":     e.RequestID,
 						"permission": e.Permission,
+						"prompt":     e.Prompt,
 					},
 				})
 			}
@@ -150,26 +151,29 @@ func (d *Daemon) setState(s state.State) {
 }
 
 // RequestPermission publica a solicitação no bus e bloqueia aguardando a resposta do Frontend
-func (d *Daemon) RequestPermission(ctx context.Context, permission string) (bool, error) {
+func (d *Daemon) RequestPermission(ctx context.Context, toolName, permission string) (bool, error) {
 	d.pendingPermsMu.Lock()
 	reqID := fmt.Sprintf("req_%d", atomic.AddUint64(&d.nextRequestID, 1))
 	ch := make(chan bool, 1)
 	d.pendingPerms[reqID] = ch
 	d.pendingPermsMu.Unlock()
 
+	prompt := fmt.Sprintf("Jay quer executar a ferramenta '%s' que exige a permissão '%s'. Permitir?", toolName, permission)
+
 	// Publica a intenção conceitualmente no barramento
 	d.bus.Publish(bus.PermissionRequestedEvent{
 		RequestID:  reqID,
 		Permission: permission,
+		Prompt:     prompt,
 	})
 
-	log.Printf("Permission '%s' requested (RequestID: %s). Waiting approval...", permission, reqID)
+	log.Printf("Permission '%s' (ref: %s) requested for tool '%s'. Waiting approval...", permission, reqID, toolName)
 
 	var allowed bool
 	select {
 	case allowed = <-ch:
 	case <-time.After(PermissionTimeout):
-		log.Printf("Permission '%s' (RequestID: %s) timed out after %v", permission, reqID, PermissionTimeout)
+		log.Printf("Permission '%s' (ref: %s) timed out after %v", permission, reqID, PermissionTimeout)
 		allowed = false
 	}
 
@@ -189,10 +193,12 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 			return d.errorResponse("internal_error", "failed to process permission response")
 		}
 		var resp struct {
-			RefID   string `json:"ref_id"`
-			Allowed bool   `json:"allowed"`
+			RefID    string `json:"ref_id"`
+			Allowed  bool   `json:"allowed"`
+			Modality string `json:"modality"`
 		}
 		if err := json.Unmarshal(payloadBytes, &resp); err == nil {
+			log.Printf("IPC Permission Response received. RefID: %s, Allowed: %v, Modality: %s", resp.RefID, resp.Allowed, resp.Modality)
 			d.pendingPermsMu.Lock()
 			ch, exists := d.pendingPerms[resp.RefID]
 			d.pendingPermsMu.Unlock()
@@ -334,7 +340,7 @@ planLoop:
 				// Intercepta e valida consentimento de segurança de forma centralizada no Daemon
 				permissionsAllowed := true
 				for _, perm := range tool.Describe().Permissions {
-					allowed, err := d.RequestPermission(context.Background(), perm)
+					allowed, err := d.RequestPermission(context.Background(), toolName, perm)
 					if err != nil || !allowed {
 						permissionsAllowed = false
 						break
