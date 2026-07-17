@@ -4,9 +4,13 @@ import (
 	"log"
 
 	"github.com/GkIgor/jay-ia/core/internal/daemon"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Carrega arquivo .env local se existir
+	_ = godotenv.Load()
+
 	log.Println("Jay Core (Headless Daemon) initializing...")
 
 	d, err := daemon.New()
