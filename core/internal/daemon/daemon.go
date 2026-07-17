@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/GkIgor/jay-ia/core/internal/bus"
+	"github.com/GkIgor/jay-ia/core/internal/conversation"
 	"github.com/GkIgor/jay-ia/core/internal/ipc"
+	"github.com/GkIgor/jay-ia/core/internal/llm"
 	"github.com/GkIgor/jay-ia/core/internal/memory"
 	"github.com/GkIgor/jay-ia/core/internal/planner"
 	"github.com/GkIgor/jay-ia/core/internal/state"
@@ -25,6 +27,9 @@ import (
 // PermissionTimeout define o tempo limite de aprovação da interface
 const PermissionTimeout = 30 * time.Second
 
+// MaxPlanningIterations define o limite de segurança contra loops infinitos de IA
+const MaxPlanningIterations = 5
+
 // Daemon coordinates all core components
 type Daemon struct {
 	currentState   state.State
@@ -33,6 +38,7 @@ type Daemon struct {
 	planner        planner.Planner
 	bus            *bus.InternalBus
 	toolBus        *tools.ToolBus
+	convManager    *conversation.Manager
 	pendingPermsMu sync.Mutex
 	pendingPerms   map[string]chan bool
 	nextRequestID  uint64
@@ -50,12 +56,31 @@ func New() (*Daemon, error) {
 	np.RegisterTool(tools.ListDirTool{})
 	tb.RegisterProvider(np)
 
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	var llmClient llm.Client
+	var err error
+	if apiKey != "" {
+		llmClient, err = llm.NewClient(llm.Config{
+			Provider: "gemini",
+			APIKey:   apiKey,
+		})
+	} else {
+		log.Println("WARNING: GEMINI_API_KEY not found in environment. Initializing Daemon with 'mock' LLM Client.")
+		llmClient, err = llm.NewClient(llm.Config{
+			Provider: "mock",
+		})
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize LLM client: %w", err)
+	}
+
 	d := &Daemon{
 		currentState: state.Idle,
 		memoryStore:  memory.NewInMemoryStore(),
-		planner:      planner.NewSimplePlanner(),
+		planner:      planner.NewLLMPlanner(llmClient, tb),
 		bus:          b,
 		toolBus:      tb,
+		convManager:  conversation.NewManager(),
 		pendingPerms: make(map[string]chan bool),
 	}
 
@@ -242,10 +267,6 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 	d.setState(state.Thinking)
 	time.Sleep(2 * time.Second)
 
-	planCtx := planner.PlanningContext{
-		WorkingMemory: make(map[string]string),
-	}
-
 	input := ""
 	if cmd.Action != "" {
 		input = "/" + cmd.Action
@@ -260,171 +281,178 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		}
 	}
 
-	if cmd.Action == "recall" || strings.HasPrefix(input, "/recall") {
-		var key string
-		if strings.HasPrefix(input, "/recall") {
-			parts := strings.SplitN(input, " ", 2)
-			if len(parts) >= 2 {
-				key = strings.TrimSpace(parts[1])
-			}
-		} else {
-			key = input
-		}
+	// Adiciona a entrada do usuário à sessão do Conversation Manager
+	d.convManager.AddUserMessage(input)
 
-		if key != "" {
-			val, err := d.memoryStore.Get(key)
-			if err == nil {
-				if valStr, ok := val.(string); ok {
-					planCtx.WorkingMemory[key] = valStr
-				}
-			}
-		}
-	}
-
-	// 2. Call Planner (pure function)
-	plan, err := d.planner.Plan(context.Background(), input, planCtx)
-	if err != nil {
-		d.setState(state.Idle)
-		return d.errorResponse(cmd.ID, fmt.Sprintf("planning error: %v", err))
-	}
-
-	// 3. Execute Steps (Side-effects execution phase)
-	d.setState(state.Executing)
-	time.Sleep(2 * time.Second)
 	var responseText string
+	iteration := 0
 
-planLoop:
-	for _, step := range plan.Steps {
-		switch step.Type {
-		case planner.StepRespond:
-			if text, ok := step.Params["text"].(string); ok {
-				if responseText != "" {
-					responseText += "\n" + text
-				} else {
-					responseText = text
+	for iteration < MaxPlanningIterations {
+		iteration++
+
+		planCtx := planner.PlanningContext{
+			WorkingMemory: make(map[string]string),
+			History:       d.convManager.GetHistory(),
+		}
+
+		if cmd.Action == "recall" || strings.HasPrefix(input, "/recall") {
+			var key string
+			if strings.HasPrefix(input, "/recall") {
+				parts := strings.SplitN(input, " ", 2)
+				if len(parts) >= 2 {
+					key = strings.TrimSpace(parts[1])
 				}
+			} else {
+				key = input
 			}
-		case planner.StepMemoryPut:
-			key, kOk := step.Params["key"].(string)
-			val, vOk := step.Params["value"].(string)
-			if kOk && vOk {
-				if err := d.memoryStore.Put(key, val); err != nil {
-					log.Printf("Failed to write to memory: %v", err)
-				}
-			}
-		case planner.StepHumanEscalate:
-			responseText = "Escalated to human."
 
-		case planner.StepToolExecute:
-			toolName, tOk := step.Params["tool"].(string)
-			argsVal, aOk := step.Params["args"]
-			if tOk && aOk {
-				argsMap := make(map[string]any)
-				if m, ok := argsVal.(map[string]any); ok {
-					argsMap = m
-				} else if m, ok := argsVal.(map[string]interface{}); ok {
-					argsMap = m
-				}
-
-				// Obtém metadados da ferramenta para checar permissões
-				tool, exists := d.toolBus.GetTool(toolName)
-				if !exists {
-					if responseText != "" {
-						responseText += fmt.Sprintf("\n[Erro na Ferramenta: %s não encontrada]", toolName)
-					} else {
-						responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", toolName)
+			if key != "" {
+				val, err := d.memoryStore.Get(key)
+				if err == nil {
+					if valStr, ok := val.(string); ok {
+						planCtx.WorkingMemory[key] = valStr
 					}
-					break planLoop
-				}
-
-				// Intercepta e valida consentimento de segurança de forma centralizada no Daemon
-				permissionsAllowed := true
-				for _, perm := range tool.Describe().Permissions {
-					allowed, err := d.RequestPermission(context.Background(), toolName, perm)
-					if err != nil || !allowed {
-						permissionsAllowed = false
-						break
-					}
-				}
-
-				if !permissionsAllowed {
-					d.bus.Publish(bus.ToolCompletedEvent{
-						ToolName: toolName,
-						Success:  false,
-						Error:    "permission denied by user",
-					})
-					if responseText != "" {
-						responseText += "\n[Erro na Ferramenta: permissão negada pelo usuário]"
-					} else {
-						responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
-					}
-					break planLoop
-				}
-
-				progressChan := make(chan tools.ProgressUpdate, 10)
-
-				// Consome canal de progresso concorrentemente
-				go func() {
-					for up := range progressChan {
-						d.bus.Publish(bus.ToolProgressEvent{
-							ToolName: toolName,
-							State:    string(up.State),
-							Percent:  up.Percent,
-							Message:  up.Message,
-						})
-					}
-				}()
-
-				res, err := d.toolBus.Execute(context.Background(), toolName, tools.Request{
-					Args:     argsMap,
-					Progress: progressChan,
-				})
-				close(progressChan)
-
-				success := err == nil && res.Success
-				var out any
-				var errStr string
-				if err != nil {
-					errStr = err.Error()
-				} else {
-					out = res.Output
-					errStr = res.Error
-				}
-
-				// Emite conclusão da ferramenta no bus
-				d.bus.Publish(bus.ToolCompletedEvent{
-					ToolName: toolName,
-					Success:  success,
-					Output:   out,
-					Error:    errStr,
-				})
-
-				// Anexa output textual na resposta para fins informativos
-				if success && out != nil {
-					if outStr, ok := out.(string); ok {
-						if responseText != "" {
-							responseText += "\n" + outStr
-						} else {
-							responseText = outStr
-						}
-					} else if outSlice, ok := out.([]string); ok {
-						outJoined := strings.Join(outSlice, ", ")
-						if responseText != "" {
-							responseText += "\n" + outJoined
-						} else {
-							responseText = outJoined
-						}
-					}
-				} else if !success {
-					if responseText != "" {
-						responseText += fmt.Sprintf("\n[Erro na Ferramenta: %s]", errStr)
-					} else {
-						responseText = fmt.Sprintf("[Erro na Ferramenta: %s]", errStr)
-					}
-					break planLoop
 				}
 			}
 		}
+
+		// 2. Call Planner
+		plan, err := d.planner.Plan(context.Background(), input, planCtx)
+		if err != nil {
+			d.setState(state.Idle)
+			return d.errorResponse(cmd.ID, fmt.Sprintf("planning error: %v", err))
+		}
+
+		hasToolExecution := false
+		var currentToolName string
+		var currentArgs map[string]any
+
+		for _, step := range plan.Steps {
+			if step.Type == planner.StepToolExecute {
+				hasToolExecution = true
+				if t, ok := step.Params["tool"].(string); ok {
+					currentToolName = t
+				}
+				if a, ok := step.Params["args"].(map[string]any); ok {
+					currentArgs = a
+				} else if m, ok := step.Params["args"].(map[string]interface{}); ok {
+					currentArgs = m
+				}
+				break
+			}
+		}
+
+		// Se o plano não solicita ferramentas, apenas retorna a resposta textual final
+		if !hasToolExecution {
+			for _, step := range plan.Steps {
+				switch step.Type {
+				case planner.StepRespond:
+					if text, ok := step.Params["text"].(string); ok {
+						responseText = text
+						d.convManager.AddModelMessage(text)
+					}
+				case planner.StepMemoryPut:
+					key, kOk := step.Params["key"].(string)
+					val, vOk := step.Params["value"].(string)
+					if kOk && vOk {
+						if err := d.memoryStore.Put(key, val); err != nil {
+							log.Printf("Failed to write to memory: %v", err)
+						}
+					}
+				case planner.StepHumanEscalate:
+					responseText = "Escalated to human."
+					d.convManager.AddModelMessage(responseText)
+				}
+			}
+			break
+		}
+
+		// 3. Execute Steps (Side-effects execution phase)
+		d.setState(state.Executing)
+		time.Sleep(1 * time.Second)
+
+		// Obtém metadados da ferramenta para checar permissões
+		tool, exists := d.toolBus.GetTool(currentToolName)
+		if !exists {
+			errStr := fmt.Sprintf("Tool %s not found", currentToolName)
+			d.convManager.AddFunctionCall(currentToolName, currentArgs)
+			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": errStr})
+			responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", currentToolName)
+			break
+		}
+
+		// Intercepta e valida consentimento de segurança de forma centralizada no Daemon
+		permissionsAllowed := true
+		for _, perm := range tool.Describe().Permissions {
+			allowed, err := d.RequestPermission(context.Background(), currentToolName, perm)
+			if err != nil || !allowed {
+				permissionsAllowed = false
+				break
+			}
+		}
+
+		if !permissionsAllowed {
+			d.bus.Publish(bus.ToolCompletedEvent{
+				ToolName: currentToolName,
+				Success:  false,
+				Error:    "permission denied by user",
+			})
+			d.convManager.AddFunctionCall(currentToolName, currentArgs)
+			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": "permission denied by user"})
+			responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
+			break
+		}
+
+		progressChan := make(chan tools.ProgressUpdate, 10)
+
+		// Consome canal de progresso concorrentemente
+		go func() {
+			for up := range progressChan {
+				d.bus.Publish(bus.ToolProgressEvent{
+					ToolName: currentToolName,
+					State:    string(up.State),
+					Percent:  up.Percent,
+					Message:  up.Message,
+				})
+			}
+		}()
+
+		res, err := d.toolBus.Execute(context.Background(), currentToolName, tools.Request{
+			Args:     currentArgs,
+			Progress: progressChan,
+		})
+		close(progressChan)
+
+		success := err == nil && res.Success
+		var out any
+		var errStr string
+		if err != nil {
+			errStr = err.Error()
+		} else {
+			out = res.Output
+			errStr = res.Error
+		}
+
+		// Emite conclusão da ferramenta no bus
+		d.bus.Publish(bus.ToolCompletedEvent{
+			ToolName: currentToolName,
+			Success:  success,
+			Output:   out,
+			Error:    errStr,
+		})
+
+		// Registra no histórico da conversa a chamada e a resposta estruturada
+		d.convManager.AddFunctionCall(currentToolName, currentArgs)
+		if success {
+			d.convManager.AddFunctionResponse(currentToolName, out)
+		} else {
+			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": errStr})
+		}
+
+		// Limpa o input inicial para a próxima iteração não cair em regras de comandos CLI
+		input = ""
+		d.setState(state.Thinking)
+		time.Sleep(1 * time.Second)
 	}
 
 	// Emitir uma animação teste para o C++

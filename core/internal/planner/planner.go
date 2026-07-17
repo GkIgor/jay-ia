@@ -2,6 +2,8 @@ package planner
 
 import (
 	"context"
+
+	"github.com/GkIgor/jay-ia/core/internal/llm"
 )
 
 type StepType string
@@ -25,6 +27,7 @@ type Plan struct {
 // PlanningContext contains only pure data queried by the Core
 type PlanningContext struct {
 	WorkingMemory map[string]string
+	History       []llm.Message
 }
 
 type Planner interface {

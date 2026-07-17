@@ -42,8 +42,8 @@ func TestSimplePlanner_Plan(t *testing.T) {
 			wantText:  "Usage: /memo key=value",
 		},
 		{
-			name:      "Recall Command Found",
-			input:     "/recall language",
+			name:  "Recall Command Found",
+			input: "/recall language",
 			planCtx: planner.PlanningContext{
 				WorkingMemory: map[string]string{
 					"language": "Go",
