@@ -132,6 +132,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 		// Process commands concurrently so the read loop remains free
 		// to process subsequent messages (like permission responses).
 		go func(m ipc.Message) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("IPC response dropped because client disconnected: %v", r)
+				}
+			}()
+
 			var resp ipc.Message
 			if s.handler != nil {
 				resp = s.handler(m)
