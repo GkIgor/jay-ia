@@ -24,8 +24,13 @@ func NewLLMPlanner(client llm.Client, toolBus *tools.ToolBus) *LLMPlanner {
 }
 
 func (p *LLMPlanner) Plan(ctx context.Context, input string, planCtx PlanningContext) (*Plan, error) {
-	// Se o comando começa com "/", delega diretamente para o SimplePlanner (retrocompatibilidade e comandos explícitos)
-	if strings.HasPrefix(strings.TrimSpace(input), "/") {
+	trimmed := strings.TrimSpace(input)
+
+	// Se o comando for "/chat <prompt>", limpamos o prefixo e enviamos para a LLM
+	if strings.HasPrefix(trimmed, "/chat ") {
+		input = strings.TrimPrefix(trimmed, "/chat ")
+	} else if strings.HasPrefix(trimmed, "/") {
+		// Se começa com outra barra (ex: /ping, /write), é um comando CLI direto
 		return p.simplePlanner.Plan(ctx, input, planCtx)
 	}
 
