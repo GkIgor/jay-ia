@@ -36,6 +36,9 @@ func TestDaemonPermissionFlow(t *testing.T) {
 	}
 	defer conn.Close()
 
+	// Garante que o Daemon registrou a conexão de cliente no mapa de clientes antes de disparar o broadcast
+	time.Sleep(50 * time.Millisecond)
+
 	// Canal para colher resposta da rotina de RequestPermission
 	allowedChan := make(chan bool)
 	errChan := make(chan error)

@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/GkIgor/jay-ia/core/internal/tools"
 	"google.golang.org/genai"
@@ -125,8 +126,11 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, history []Message, a
 		})
 	}
 
-	// 3. Executa a chamada do modelo de linguagem (utilizando a versão recomendada gemini-2.5-flash)
-	model := "gemini-2.5-flash"
+	// 3. Executa a chamada do modelo de linguagem (com base no GEMINI_MODEL ou fallback para gemini-3.5-flash)
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = "gemini-3.5-flash"
+	}
 	config := &genai.GenerateContentConfig{
 		Tools: sdkTools,
 	}
