@@ -1,4 +1,4 @@
-.PHONY: build test clean run-core run-daemon run-cli
+.PHONY: build build-debug test clean run-core run-daemon run-cli
 
 # Default target runs build
 all: build
@@ -7,6 +7,10 @@ all: build
 build:
 	go build -o bin/jay ./cli/cmd/jay
 	go build -o bin/jayd ./core/cmd/jayd
+
+build-debug:
+	go build -gcflags="all=-N -l" -o bin/jay ./cli/cmd/jay
+	go build -gcflags="all=-N -l" -o bin/jayd ./core/cmd/jayd
 
 # Run all project tests
 test:
