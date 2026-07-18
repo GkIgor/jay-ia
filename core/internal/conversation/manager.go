@@ -54,8 +54,9 @@ func (m *Manager) AddModelMessage(text string) {
 	})
 }
 
-// AddFunctionCall anexa a solicitação de execução de ferramenta emitida pelo modelo
-func (m *Manager) AddFunctionCall(name string, args map[string]interface{}) {
+// AddFunctionCall anexa a solicitação de execução de ferramenta emitida pelo modelo.
+// rawPart é o *genai.Part original (opaco) recebido do SDK — use nil para chamadas sintéticas.
+func (m *Manager) AddFunctionCall(name string, args map[string]interface{}, rawPart any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -67,6 +68,7 @@ func (m *Manager) AddFunctionCall(name string, args map[string]interface{}) {
 					Name: name,
 					Args: args,
 				},
+				RawSDKPart: rawPart,
 			},
 		},
 	})

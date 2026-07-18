@@ -272,14 +272,15 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		input = "/" + cmd.Action
 		if cmd.Data != nil {
 			if s, ok := cmd.Data.(string); ok && s != "" {
-				input += " " + s
+				input += " " + strings.TrimSpace(s)
 			}
 		}
 	} else if cmd.Data != nil {
 		if s, ok := cmd.Data.(string); ok {
-			input = s
+			input = strings.TrimSpace(s)
 		}
 	}
+	input = strings.TrimSpace(input)
 
 	// Adiciona a entrada do usuário à sessão do Conversation Manager
 	d.convManager.AddUserMessage(input)
@@ -326,6 +327,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		hasToolExecution := false
 		var currentToolName string
 		var currentArgs map[string]any
+		var currentRawSDKPart any
 
 		for _, step := range plan.Steps {
 			if step.Type == planner.StepToolExecute {
@@ -338,6 +340,8 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 				} else if m, ok := step.Params["args"].(map[string]interface{}); ok {
 					currentArgs = m
 				}
+				// Preserva o Part original do SDK (com thought_signature) para reenvio correto ao Gemini
+				currentRawSDKPart = step.Params["raw_sdk_part"]
 				break
 			}
 		}
@@ -375,7 +379,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		tool, exists := d.toolBus.GetTool(currentToolName)
 		if !exists {
 			errStr := fmt.Sprintf("Tool %s not found", currentToolName)
-			d.convManager.AddFunctionCall(currentToolName, currentArgs)
+			d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
 			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": errStr})
 			responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", currentToolName)
 			break
@@ -397,7 +401,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 				Success:  false,
 				Error:    "permission denied by user",
 			})
-			d.convManager.AddFunctionCall(currentToolName, currentArgs)
+			d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
 			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": "permission denied by user"})
 			responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
 			break
@@ -442,7 +446,7 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		})
 
 		// Registra no histórico da conversa a chamada e a resposta estruturada
-		d.convManager.AddFunctionCall(currentToolName, currentArgs)
+		d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
 		if success {
 			d.convManager.AddFunctionResponse(currentToolName, out)
 		} else {

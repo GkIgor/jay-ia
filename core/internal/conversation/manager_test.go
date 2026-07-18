@@ -15,7 +15,7 @@ func TestConversationManager(t *testing.T) {
 
 	m.AddUserMessage("Hello")
 	m.AddModelMessage("Hi there")
-	m.AddFunctionCall("fs.read_file", map[string]any{"path": "file.txt"})
+	m.AddFunctionCall("fs.read_file", map[string]any{"path": "file.txt"}, nil)
 	m.AddFunctionResponse("fs.read_file", "file contents")
 
 	h := m.GetHistory()

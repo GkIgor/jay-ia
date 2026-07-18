@@ -41,6 +41,13 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, history []Message, a
 
 		parts := make([]*genai.Part, 0, len(msg.Parts))
 		for _, part := range msg.Parts {
+			// Se o Part foi recebido originalmente do SDK (com thought_signature),
+			// reenvia o Part original para preservar campos opacos do Gemini.
+			if raw, ok := part.RawSDKPart.(*genai.Part); ok && raw != nil {
+				parts = append(parts, raw)
+				continue
+			}
+
 			sdkPart := &genai.Part{}
 			if part.Text != "" {
 				sdkPart.Text = part.Text
@@ -154,8 +161,9 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, history []Message, a
 					args[k] = v
 				}
 				result.FunctionCalls = append(result.FunctionCalls, FunctionCall{
-					Name: part.FunctionCall.Name,
-					Args: args,
+					Name:       part.FunctionCall.Name,
+					Args:       args,
+					RawSDKPart: part, // Preserva o Part original com thought_signature
 				})
 			}
 		}
