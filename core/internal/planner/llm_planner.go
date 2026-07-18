@@ -59,9 +59,10 @@ func BuildPlan(resp *llm.Response) *Plan {
 		steps = append(steps, Step{
 			Type: StepToolExecute,
 			Params: map[string]any{
-				"tool":         fc.Name,
-				"args":         fc.Args,
-				"raw_sdk_part": fc.RawSDKPart, // Opaco: preserva o thought_signature do Gemini
+				"id":       fc.ID,
+				"tool":     fc.Name,
+				"args":     fc.Args,
+				"metadata": fc.Metadata,
 			},
 		})
 	}

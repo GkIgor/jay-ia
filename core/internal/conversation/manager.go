@@ -55,8 +55,7 @@ func (m *Manager) AddModelMessage(text string) {
 }
 
 // AddFunctionCall anexa a solicitação de execução de ferramenta emitida pelo modelo.
-// rawPart é o *genai.Part original (opaco) recebido do SDK — use nil para chamadas sintéticas.
-func (m *Manager) AddFunctionCall(name string, args map[string]interface{}, rawPart any) {
+func (m *Manager) AddFunctionCall(id string, name string, args map[string]interface{}, metadata map[string]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -65,17 +64,19 @@ func (m *Manager) AddFunctionCall(name string, args map[string]interface{}, rawP
 		Parts: []llm.Part{
 			{
 				FunctionCall: &llm.FunctionCall{
-					Name: name,
-					Args: args,
+					ID:       id,
+					Name:     name,
+					Args:     args,
+					Metadata: metadata,
 				},
-				RawSDKPart: rawPart,
+				Metadata: metadata,
 			},
 		},
 	})
 }
 
-// AddFunctionResponse anexa o resultado da execução da ferramenta local de volta ao histórico
-func (m *Manager) AddFunctionResponse(name string, response interface{}) {
+// AddFunctionResponse anexa o resultado da execução da ferramenta local de volta ao histórico.
+func (m *Manager) AddFunctionResponse(id string, name string, response interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -84,6 +85,7 @@ func (m *Manager) AddFunctionResponse(name string, response interface{}) {
 		Parts: []llm.Part{
 			{
 				FunctionResp: &llm.FunctionResponse{
+					ID:       id,
 					Name:     name,
 					Response: response,
 				},

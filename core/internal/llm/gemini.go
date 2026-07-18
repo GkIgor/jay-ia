@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -41,11 +42,14 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, history []Message, a
 
 		parts := make([]*genai.Part, 0, len(msg.Parts))
 		for _, part := range msg.Parts {
-			// Se o Part foi recebido originalmente do SDK (com thought_signature),
-			// reenvia o Part original para preservar campos opacos do Gemini.
-			if raw, ok := part.RawSDKPart.(*genai.Part); ok && raw != nil {
-				parts = append(parts, raw)
-				continue
+			if part.Metadata != nil {
+				if rawJSON, ok := part.Metadata["raw_genai_part"]; ok && rawJSON != "" {
+					var sdkPart genai.Part
+					if err := json.Unmarshal([]byte(rawJSON), &sdkPart); err == nil {
+						parts = append(parts, &sdkPart)
+						continue
+					}
+				}
 			}
 
 			sdkPart := &genai.Part{}
@@ -160,10 +164,14 @@ func (g *GeminiClient) GenerateContent(ctx context.Context, history []Message, a
 				for k, v := range part.FunctionCall.Args {
 					args[k] = v
 				}
+				var meta map[string]string
+				if b, err := json.Marshal(part); err == nil {
+					meta = map[string]string{"raw_genai_part": string(b)}
+				}
 				result.FunctionCalls = append(result.FunctionCalls, FunctionCall{
-					Name:       part.FunctionCall.Name,
-					Args:       args,
-					RawSDKPart: part, // Preserva o Part original com thought_signature
+					Name:     part.FunctionCall.Name,
+					Args:     args,
+					Metadata: meta,
 				})
 			}
 		}

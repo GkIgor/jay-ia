@@ -17,27 +17,25 @@ const (
 
 // FunctionCall representa o pedido de chamada de ferramenta pela LLM
 type FunctionCall struct {
-	Name       string                 `json:"name"`
-	Args       map[string]interface{} `json:"args"`
-	RawSDKPart any                    `json:"-"` // Preserva o *genai.Part original (com thought_signature)
+	ID       string                 `json:"id,omitempty"`
+	Name     string                 `json:"name"`
+	Args     map[string]interface{} `json:"args"`
+	Metadata map[string]string      `json:"metadata,omitempty"`
 }
 
 // FunctionResponse representa a resposta da ferramenta executada localmente
 type FunctionResponse struct {
+	ID       string      `json:"id,omitempty"` // ID da chamada correspondente
 	Name     string      `json:"name"`
 	Response interface{} `json:"response"`
 }
 
 // Part representa os elementos que compõem uma mensagem (texto ou chamada/resposta de ferramenta).
-//
-// RawSDKPart é um campo opaco usado pelo GeminiClient para preservar o *genai.Part original
-// (incluindo o thought_signature) sem vazar dependências do SDK nos tipos agnósticos.
-// Nenhuma outra camada deve ler ou escrever neste campo.
 type Part struct {
 	Text         string            `json:"text,omitempty"`
 	FunctionCall *FunctionCall     `json:"function_call,omitempty"`
 	FunctionResp *FunctionResponse `json:"function_resp,omitempty"`
-	RawSDKPart   any               `json:"-"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 // Message representa o elemento básico do histórico da conversa

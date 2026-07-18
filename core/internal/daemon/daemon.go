@@ -56,18 +56,40 @@ func New() (*Daemon, error) {
 	np.RegisterTool(tools.ListDirTool{})
 	tb.RegisterProvider(np)
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	provider := os.Getenv("LLM_PROVIDER")
+	apiKey := ""
+	model := ""
+
+	if provider == "" {
+		if os.Getenv("OPENROUTER_API_KEY") != "" {
+			provider = "openrouter"
+		} else if os.Getenv("GEMINI_API_KEY") != "" {
+			provider = "gemini"
+		} else {
+			provider = "mock"
+		}
+	}
+
+	switch provider {
+	case "openrouter":
+		apiKey = os.Getenv("OPENROUTER_API_KEY")
+		model = os.Getenv("OPENROUTER_MODEL")
+	case "gemini":
+		apiKey = os.Getenv("GEMINI_API_KEY")
+	}
+
 	var llmClient llm.Client
 	var err error
-	if apiKey != "" {
-		llmClient, err = llm.NewClient(llm.Config{
-			Provider: "gemini",
-			APIKey:   apiKey,
-		})
+
+	if provider == "mock" {
+		log.Println("WARNING: No LLM API Key found in environment. Initializing Daemon with 'mock' LLM Client.")
+		llmClient, err = llm.NewClient(llm.Config{Provider: "mock"})
 	} else {
-		log.Println("WARNING: GEMINI_API_KEY not found in environment. Initializing Daemon with 'mock' LLM Client.")
+		log.Printf("Initializing Daemon with LLM Provider: %s", provider)
 		llmClient, err = llm.NewClient(llm.Config{
-			Provider: "mock",
+			Provider: provider,
+			APIKey:   apiKey,
+			Model:    model,
 		})
 	}
 	if err != nil {
@@ -325,13 +347,17 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		}
 
 		hasToolExecution := false
+		var currentToolID string
 		var currentToolName string
 		var currentArgs map[string]any
-		var currentRawSDKPart any
+		var currentMetadata map[string]string
 
 		for _, step := range plan.Steps {
 			if step.Type == planner.StepToolExecute {
 				hasToolExecution = true
+				if id, ok := step.Params["id"].(string); ok {
+					currentToolID = id
+				}
 				if t, ok := step.Params["tool"].(string); ok {
 					currentToolName = t
 				}
@@ -340,8 +366,9 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 				} else if m, ok := step.Params["args"].(map[string]interface{}); ok {
 					currentArgs = m
 				}
-				// Preserva o Part original do SDK (com thought_signature) para reenvio correto ao Gemini
-				currentRawSDKPart = step.Params["raw_sdk_part"]
+				if meta, ok := step.Params["metadata"].(map[string]string); ok {
+					currentMetadata = meta
+				}
 				break
 			}
 		}
@@ -379,8 +406,8 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		tool, exists := d.toolBus.GetTool(currentToolName)
 		if !exists {
 			errStr := fmt.Sprintf("Tool %s not found", currentToolName)
-			d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
-			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": errStr})
+			d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
+			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": errStr})
 			responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", currentToolName)
 			break
 		}
@@ -401,8 +428,8 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 				Success:  false,
 				Error:    "permission denied by user",
 			})
-			d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
-			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": "permission denied by user"})
+			d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
+			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": "permission denied by user"})
 			responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
 			break
 		}
@@ -446,11 +473,11 @@ func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
 		})
 
 		// Registra no histórico da conversa a chamada e a resposta estruturada
-		d.convManager.AddFunctionCall(currentToolName, currentArgs, currentRawSDKPart)
+		d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
 		if success {
-			d.convManager.AddFunctionResponse(currentToolName, out)
+			d.convManager.AddFunctionResponse(currentToolID, currentToolName, out)
 		} else {
-			d.convManager.AddFunctionResponse(currentToolName, map[string]any{"error": errStr})
+			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": errStr})
 		}
 
 		// Limpa o input inicial para a próxima iteração não cair em regras de comandos CLI
