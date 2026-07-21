@@ -28,4 +28,5 @@ var (
 	ErrInvalidArgument  = errors.New("storage: argumento inválido")
 	ErrDeleteRestricted = errors.New("storage: remoção restrita por dependência existente")
 	ErrInvalidOwner     = errors.New("storage: proprietário do registro não existe")
+	ErrInvalidChat      = errors.New("storage: chat de destino não existe")
 )
