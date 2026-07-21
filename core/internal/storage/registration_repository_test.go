@@ -1,32 +1,31 @@
 package storage
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 )
 
-func newTestMigratedDB(t *testing.T) *sql.DB {
+func newTestMigratedDB(t *testing.T) *StorageEngine {
 	t.Helper()
 	engine, err := NewStorageEngine(Config{DatabasePath: ":memory:"})
 	if err != nil {
-		t.Fatalf("falha ao criar StorageEngine: %v", err)
+		t.Fatalf("falha no NewStorageEngine: %v", err)
 	}
 	if err := engine.Open(); err != nil {
-		t.Fatalf("falha ao abrir StorageEngine: %v", err)
+		t.Fatalf("falha no Open(): %v", err)
 	}
 	t.Cleanup(func() { _ = engine.Close() })
 
 	migrator, err := NewMigrationEngine(engine.DB())
 	if err != nil {
-		t.Fatalf("falha ao criar MigrationEngine: %v", err)
+		t.Fatalf("falha no NewMigrationEngine: %v", err)
 	}
 	if err := migrator.Run(); err != nil {
-		t.Fatalf("falha ao rodar migrations: %v", err)
+		t.Fatalf("falha no Run(): %v", err)
 	}
 
-	return engine.DB()
+	return engine
 }
 
 func TestRegistrationRepository_NilDatabase(t *testing.T) {
@@ -37,8 +36,8 @@ func TestRegistrationRepository_NilDatabase(t *testing.T) {
 }
 
 func TestRegistrationRepo_Create_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, err := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, err := NewRegistrationRepository(engine.DB())
 	if err != nil {
 		t.Fatalf("falha no NewRegistrationRepository: %v", err)
 	}
@@ -73,8 +72,8 @@ func TestRegistrationRepo_Create_Success(t *testing.T) {
 }
 
 func TestRegistrationRepo_Create_DuplicateID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{ID: "client-1", Status: RegistrationActive}
 	if err := repo.Create(reg); err != nil {
@@ -88,8 +87,8 @@ func TestRegistrationRepo_Create_DuplicateID(t *testing.T) {
 }
 
 func TestRegistrationRepo_Create_EmptyID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{ID: "", Status: RegistrationActive}
 	err := repo.Create(reg)
@@ -99,8 +98,8 @@ func TestRegistrationRepo_Create_EmptyID(t *testing.T) {
 }
 
 func TestRegistrationRepo_Upsert_Insert(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{
 		ID:           "client-upsert-1",
@@ -122,8 +121,8 @@ func TestRegistrationRepo_Upsert_Insert(t *testing.T) {
 }
 
 func TestRegistrationRepo_Upsert_Update(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{
 		ID:           "client-upsert-2",
@@ -139,7 +138,7 @@ func TestRegistrationRepo_Upsert_Update(t *testing.T) {
 		t.Fatalf("falha ao buscar registro inicial: %v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond) // Garante timestamp diferente para updated_at
+	time.Sleep(10 * time.Millisecond)
 
 	updatedReg := Registration{
 		ID:           "client-upsert-2",
@@ -167,8 +166,8 @@ func TestRegistrationRepo_Upsert_Update(t *testing.T) {
 }
 
 func TestRegistrationRepo_FindByID_NotFound(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	_, err := repo.FindByID("inexistente")
 	if !errors.Is(err, ErrNotFound) {
@@ -177,8 +176,8 @@ func TestRegistrationRepo_FindByID_NotFound(t *testing.T) {
 }
 
 func TestRegistrationRepo_FindByID_EmptyID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	_, err := repo.FindByID("")
 	if !errors.Is(err, ErrInvalidArgument) {
@@ -187,8 +186,8 @@ func TestRegistrationRepo_FindByID_EmptyID(t *testing.T) {
 }
 
 func TestRegistrationRepo_List_Empty(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	list, err := repo.List()
 	if err != nil {
@@ -203,8 +202,8 @@ func TestRegistrationRepo_List_Empty(t *testing.T) {
 }
 
 func TestRegistrationRepo_List_Multiple(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg1 := Registration{ID: "client-a", Status: RegistrationActive}
 	reg2 := Registration{ID: "client-b", Status: RegistrationActive}
@@ -230,8 +229,8 @@ func TestRegistrationRepo_List_Multiple(t *testing.T) {
 }
 
 func TestRegistrationRepo_Delete_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{ID: "client-del", Status: RegistrationActive}
 	_ = repo.Create(reg)
@@ -246,19 +245,19 @@ func TestRegistrationRepo_Delete_Success(t *testing.T) {
 	}
 }
 
-func TestRegistrationRepo_Delete_NotFound(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+func TestRegistrationRepo_Delete_Idempotent(t *testing.T) {
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	err := repo.Delete("inexistente")
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("esperava ErrNotFound no Delete, obteve: %v", err)
+	if err != nil {
+		t.Fatalf("esperava nil no Delete de registro inexistente (idempotente), obteve: %v", err)
 	}
 }
 
 func TestRegistrationRepo_Delete_EmptyID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	err := repo.Delete("")
 	if !errors.Is(err, ErrInvalidArgument) {
@@ -267,16 +266,15 @@ func TestRegistrationRepo_Delete_EmptyID(t *testing.T) {
 }
 
 func TestRegistrationRepo_Delete_Restricted(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{ID: "client-with-chat", Status: RegistrationActive}
 	if err := repo.Create(reg); err != nil {
 		t.Fatalf("falha ao criar registro: %v", err)
 	}
 
-	// Insere um chat associado diretamente via SQL para disparar FK RESTRICT
-	_, err := db.Exec(`INSERT INTO chats (id, owner_registration_id, title) VALUES ('chat-1', 'client-with-chat', 'Title')`)
+	_, err := engine.DB().Exec(`INSERT INTO chats (id, owner_registration_id, title) VALUES ('chat-1', 'client-with-chat', 'Title')`)
 	if err != nil {
 		t.Fatalf("falha ao inserir chat de teste: %v", err)
 	}
@@ -288,8 +286,8 @@ func TestRegistrationRepo_Delete_Restricted(t *testing.T) {
 }
 
 func TestRegistrationRepo_Create_After_Delete(t *testing.T) {
-	db := newTestMigratedDB(t)
-	repo, _ := NewRegistrationRepository(db)
+	engine := newTestMigratedDB(t)
+	repo, _ := NewRegistrationRepository(engine.DB())
 
 	reg := Registration{ID: "client-recycle", Status: RegistrationActive}
 	if err := repo.Create(reg); err != nil {
@@ -301,6 +299,6 @@ func TestRegistrationRepo_Create_After_Delete(t *testing.T) {
 	}
 
 	if err := repo.Create(reg); err != nil {
-		t.Fatalf("falha ao recriar registro após delete (Hard Delete falhou?): %v", err)
+		t.Fatalf("falha ao recriar registro após delete: %v", err)
 	}
 }

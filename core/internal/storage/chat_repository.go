@@ -166,8 +166,7 @@ func (r *ChatRepository) Update(chat Chat) error {
 }
 
 // Delete realiza o Soft Delete de um chat configurando status = ChatDeleted (3) e atualizando updated_at.
-// É uma operação idempotente: se o chat já estiver deletado (status = 3), retorna nil.
-// Retorna ErrNotFound se o ID não existir no banco de dados.
+// É uma operação 100% idempotente: retorna nil se o chat já estiver deletado (status = 3) ou não existir.
 func (r *ChatRepository) Delete(id string) error {
 	if strings.TrimSpace(id) == "" {
 		return ErrInvalidArgument
@@ -175,31 +174,11 @@ func (r *ChatRepository) Delete(id string) error {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	query := `UPDATE chats SET status = 3, updated_at = ? WHERE id = ? AND status != 3;`
-	res, err := r.db.Exec(query, now, id)
+	_, err := r.db.Exec(query, now, id)
 	if err != nil {
 		return mapChatError(err)
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("storage: falha ao verificar linhas afetadas no delete: %w", err)
-	}
-
-	if rows > 0 {
-		return nil
-	}
-
-	// Se nenhuma linha foi alterada, verifica se o chat existe (já com status = 3) ou não existe
-	var dummyStatus int
-	err = r.db.QueryRow(`SELECT status FROM chats WHERE id = ?;`, id).Scan(&dummyStatus)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return ErrNotFound
-		}
-		return fmt.Errorf("storage: falha ao verificar existência do chat %s: %w", id, err)
-	}
-
-	// Chat existe e já está deletado (status == 3) -> idempotência
 	return nil
 }
 

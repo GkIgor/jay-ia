@@ -14,9 +14,9 @@ func TestChatRepository_NilDatabase(t *testing.T) {
 }
 
 func TestChatRepo_Create_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 
@@ -55,8 +55,8 @@ func TestChatRepo_Create_Success(t *testing.T) {
 }
 
 func TestChatRepo_Create_InvalidOwner(t *testing.T) {
-	db := newTestMigratedDB(t)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	chat := Chat{
 		ID:                  "chat-invalid-owner",
@@ -71,9 +71,9 @@ func TestChatRepo_Create_InvalidOwner(t *testing.T) {
 }
 
 func TestChatRepo_Create_DuplicateID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 
@@ -89,9 +89,9 @@ func TestChatRepo_Create_DuplicateID(t *testing.T) {
 }
 
 func TestChatRepo_Create_StatusDeletedProhibited(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 
@@ -109,8 +109,8 @@ func TestChatRepo_Create_StatusDeletedProhibited(t *testing.T) {
 }
 
 func TestChatRepo_Create_EmptyIDOrOwner(t *testing.T) {
-	db := newTestMigratedDB(t)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	err := chatRepo.Create(Chat{ID: "", OwnerRegistrationID: "owner-1", Title: "T"})
 	if !errors.Is(err, ErrInvalidArgument) {
@@ -124,8 +124,8 @@ func TestChatRepo_Create_EmptyIDOrOwner(t *testing.T) {
 }
 
 func TestChatRepo_FindByID_NotFound(t *testing.T) {
-	db := newTestMigratedDB(t)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_, err := chatRepo.FindByID("chat-inexistente")
 	if !errors.Is(err, ErrNotFound) {
@@ -134,8 +134,8 @@ func TestChatRepo_FindByID_NotFound(t *testing.T) {
 }
 
 func TestChatRepo_FindByID_EmptyID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_, err := chatRepo.FindByID("")
 	if !errors.Is(err, ErrInvalidArgument) {
@@ -144,9 +144,9 @@ func TestChatRepo_FindByID_EmptyID(t *testing.T) {
 }
 
 func TestChatRepo_Update_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 
@@ -157,7 +157,6 @@ func TestChatRepo_Update_Success(t *testing.T) {
 
 	initial, _ := chatRepo.FindByID("chat-up")
 
-	// Sleep > 1 segundo para virada de segundo do RFC3339
 	time.Sleep(1005 * time.Millisecond)
 
 	updated := Chat{
@@ -195,9 +194,9 @@ func TestChatRepo_Update_Success(t *testing.T) {
 }
 
 func TestChatRepo_Update_StatusDeletedProhibited(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 	_ = chatRepo.Create(Chat{ID: "chat-up-del", OwnerRegistrationID: "reg-owner-1", Title: "Original"})
@@ -209,9 +208,9 @@ func TestChatRepo_Update_StatusDeletedProhibited(t *testing.T) {
 }
 
 func TestChatRepo_Update_DeletedChat(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 	_ = chatRepo.Create(Chat{ID: "chat-to-del", OwnerRegistrationID: "reg-owner-1", Title: "Original"})
@@ -224,9 +223,9 @@ func TestChatRepo_Update_DeletedChat(t *testing.T) {
 }
 
 func TestChatRepo_Delete_SoftDelete_And_Idempotency(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-1", Status: RegistrationActive})
 	_ = chatRepo.Create(Chat{ID: "chat-soft-del", OwnerRegistrationID: "reg-owner-1", Title: "Chat Exemplo"})
@@ -249,7 +248,7 @@ func TestChatRepo_Delete_SoftDelete_And_Idempotency(t *testing.T) {
 
 	// Confirma que a linha física no SQL ainda existe com status = 3
 	var status int
-	err = db.QueryRow(`SELECT status FROM chats WHERE id = 'chat-soft-del'`).Scan(&status)
+	err = engine.DB().QueryRow(`SELECT status FROM chats WHERE id = 'chat-soft-del'`).Scan(&status)
 	if err != nil {
 		t.Fatalf("falha ao consultar registro físico no banco: %v", err)
 	}
@@ -258,20 +257,20 @@ func TestChatRepo_Delete_SoftDelete_And_Idempotency(t *testing.T) {
 	}
 }
 
-func TestChatRepo_Delete_NotFound(t *testing.T) {
-	db := newTestMigratedDB(t)
-	chatRepo, _ := NewChatRepository(db)
+func TestChatRepo_Delete_NonExistent_Idempotent(t *testing.T) {
+	engine := newTestMigratedDB(t)
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	err := chatRepo.Delete("chat-que-nunca-existiu")
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("esperava ErrNotFound ao deletar chat inexistente, obteve: %v", err)
+	if err != nil {
+		t.Fatalf("esperava nil ao deletar chat inexistente (idempotente), obteve: %v", err)
 	}
 }
 
 func TestChatRepo_ListByOwner_ActiveOnly_And_Ordering(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "owner-list", Status: RegistrationActive})
 
@@ -281,7 +280,7 @@ func TestChatRepo_ListByOwner_ActiveOnly_And_Ordering(t *testing.T) {
 	time.Sleep(1005 * time.Millisecond)
 	_ = chatRepo.Create(Chat{ID: "chat-c", OwnerRegistrationID: "owner-list", Title: "Chat C", Status: ChatActive})
 	_ = chatRepo.Create(Chat{ID: "chat-d", OwnerRegistrationID: "owner-list", Title: "Chat D", Status: ChatActive})
-	_ = chatRepo.Delete("chat-d") // Deletado não deve aparecer em nenhuma lista
+	_ = chatRepo.Delete("chat-d")
 
 	// Teste 1: ActiveOnly
 	actives, err := chatRepo.ListByOwner("owner-list", ChatFilterActiveOnly)

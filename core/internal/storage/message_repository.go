@@ -253,8 +253,7 @@ func (r *MessageRepository) Update(msg Message) error {
 }
 
 // Delete realiza o Soft Delete de uma mensagem configurando status = MessageDeleted (3) e atualizando updated_at.
-// É uma operação idempotente: se a mensagem já estiver deletada (status = 3), retorna nil.
-// Retorna ErrNotFound se o ID não existir no banco de dados.
+// É uma operação 100% idempotente: retorna nil se a mensagem já estiver deletada (status = 3) ou não existir.
 func (r *MessageRepository) Delete(id string) error {
 	if strings.TrimSpace(id) == "" {
 		return ErrInvalidArgument
@@ -262,31 +261,11 @@ func (r *MessageRepository) Delete(id string) error {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	query := `UPDATE messages SET status = 3, updated_at = ? WHERE id = ? AND status != 3;`
-	res, err := r.db.Exec(query, now, id)
+	_, err := r.db.Exec(query, now, id)
 	if err != nil {
 		return mapMessageError(err)
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("storage: falha ao verificar linhas afetadas no delete da mensagem: %w", err)
-	}
-
-	if rows > 0 {
-		return nil
-	}
-
-	// Se nenhuma linha foi alterada, verifica se a mensagem existe no banco
-	var dummyStatus int
-	err = r.db.QueryRow(`SELECT status FROM messages WHERE id = ?;`, id).Scan(&dummyStatus)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return ErrNotFound
-		}
-		return fmt.Errorf("storage: falha ao verificar existência da mensagem %s: %w", id, err)
-	}
-
-	// Mensagem existe e já está deletada (status == 3) -> idempotência
 	return nil
 }
 

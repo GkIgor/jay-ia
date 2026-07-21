@@ -13,9 +13,9 @@ func TestSharedRuleRepository_NilDatabase(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 
@@ -59,9 +59,9 @@ func TestSharedRuleRepo_ReplaceRules_Success(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_AtomicityOverwrite(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 
@@ -94,9 +94,9 @@ func TestSharedRuleRepo_ReplaceRules_AtomicityOverwrite(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_OverrideStructID(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner-real", Status: RegistrationActive})
 
@@ -122,9 +122,9 @@ func TestSharedRuleRepo_ReplaceRules_OverrideStructID(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_EmptyList(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 
@@ -147,8 +147,8 @@ func TestSharedRuleRepo_ReplaceRules_EmptyList(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_InvalidRegistration(t *testing.T) {
-	db := newTestMigratedDB(t)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	rules := []SharedRule{{Pattern: "test"}}
 	_, err := ruleRepo.ReplaceRules("reg-inexistente", rules)
@@ -158,9 +158,9 @@ func TestSharedRuleRepo_ReplaceRules_InvalidRegistration(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ReplaceRules_WhitespacePattern(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 
@@ -172,9 +172,9 @@ func TestSharedRuleRepo_ReplaceRules_WhitespacePattern(t *testing.T) {
 }
 
 func TestSharedRuleRepo_ListByRegistration_Empty(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 
@@ -191,9 +191,9 @@ func TestSharedRuleRepo_ListByRegistration_Empty(t *testing.T) {
 }
 
 func TestSharedRuleRepo_DeleteByRegistration_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-owner", Status: RegistrationActive})
 	_, _ = ruleRepo.ReplaceRules("reg-owner", []SharedRule{{Pattern: "p1"}})
@@ -214,9 +214,9 @@ func TestSharedRuleRepo_DeleteByRegistration_Success(t *testing.T) {
 }
 
 func TestSharedRuleRepo_CascadeOnRegistrationDelete(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	ruleRepo, _ := NewSharedRuleRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	ruleRepo, _ := NewSharedRuleRepository(engine.DB())
 
 	_ = regRepo.Create(Registration{ID: "reg-to-delete", Status: RegistrationActive})
 	_, _ = ruleRepo.ReplaceRules("reg-to-delete", []SharedRule{{Pattern: "p1"}, {Pattern: "p2"}})
@@ -228,7 +228,7 @@ func TestSharedRuleRepo_CascadeOnRegistrationDelete(t *testing.T) {
 
 	// As shared_rules filhas devem ser apagadas via SQL CASCADE
 	var count int
-	err := db.QueryRow(`SELECT COUNT(1) FROM shared_rules WHERE registration_id = 'reg-to-delete'`).Scan(&count)
+	err := engine.DB().QueryRow(`SELECT COUNT(1) FROM shared_rules WHERE registration_id = 'reg-to-delete'`).Scan(&count)
 	if err != nil {
 		t.Fatalf("falha ao verificar contagem física de shared_rules: %v", err)
 	}

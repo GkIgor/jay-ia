@@ -130,25 +130,17 @@ func (r *RegistrationRepository) List() ([]*Registration, error) {
 }
 
 // Delete remove fisicamente uma identidade lógica pelo seu ID.
-// Retorna ErrNotFound se o registro não existir ou ErrDeleteRestricted se existirem dependências via FK.
+// É uma operação idempotente: retorna nil mesmo se o registro já não existia.
+// Retorna ErrDeleteRestricted se existirem dependências ativas via FK RESTRICT.
 func (r *RegistrationRepository) Delete(id string) error {
 	if strings.TrimSpace(id) == "" {
 		return ErrInvalidArgument
 	}
 
 	query := `DELETE FROM registrations WHERE id = ?;`
-	res, err := r.db.Exec(query, id)
+	_, err := r.db.Exec(query, id)
 	if err != nil {
 		return mapRegistrationError(err)
-	}
-
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("storage: falha ao verificar linhas afetadas na remoção: %w", err)
-	}
-
-	if rows == 0 {
-		return ErrNotFound
 	}
 
 	return nil

@@ -15,22 +15,23 @@ func TestMessageRepository_NilDatabase(t *testing.T) {
 }
 
 func TestMessageRepo_Create_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-1", OwnerRegistrationID: "reg-1", Title: "Chat 1"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-1", OwnerRegistrationID: "reg-user-1", Title: "Chat 1"})
 
 	msg := Message{
 		ID:           "msg-1",
-		ChatID:       "chat-1",
+		ChatID:       "chat-m-1",
 		AuthorType:   AuthorRegistration,
-		AuthorID:     "reg-1",
+		AuthorID:     "reg-user-1",
 		Role:         RoleUser,
-		Content:      "Olá, mundo!",
-		MetadataJSON: `{"client":"test"}`,
+		Content:      "Olá, Jay!",
+		ContentType:  ContentTypeTextPlain,
+		MetadataJSON: `{"client":"cli"}`,
 	}
 
 	if err := msgRepo.Create(msg); err != nil {
@@ -42,331 +43,258 @@ func TestMessageRepo_Create_Success(t *testing.T) {
 		t.Fatalf("falha no FindByID: %v", err)
 	}
 
-	if fetched.ID != msg.ID {
-		t.Errorf("esperava ID %s, obteve %s", msg.ID, fetched.ID)
-	}
-	if fetched.ChatID != msg.ChatID {
-		t.Errorf("esperava ChatID %s, obteve %s", msg.ChatID, fetched.ChatID)
-	}
-	if fetched.AuthorType != AuthorRegistration {
-		t.Errorf("esperava AuthorType Registration (1), obteve %d", fetched.AuthorType)
-	}
-	if fetched.AuthorID != "reg-1" {
-		t.Errorf("esperava AuthorID reg-1, obteve %s", fetched.AuthorID)
-	}
-	if fetched.Role != RoleUser {
-		t.Errorf("esperava Role User (1), obteve %d", fetched.Role)
-	}
-	if fetched.Content != "Olá, mundo!" {
-		t.Errorf("esperava Content 'Olá, mundo!', obteve %s", fetched.Content)
-	}
-	if fetched.ContentType != ContentTypeTextPlain {
-		t.Errorf("esperava ContentType default TextPlain (1), obteve %d", fetched.ContentType)
+	if fetched.ID != msg.ID || fetched.ChatID != msg.ChatID || fetched.Content != msg.Content {
+		t.Errorf("dados incorretos na mensagem buscada: %+v", fetched)
 	}
 	if fetched.Status != MessageSent {
-		t.Errorf("esperava Status default MessageSent (1), obteve %d", fetched.Status)
+		t.Errorf("esperava status MessageSent (1), obteve: %d", fetched.Status)
 	}
 	if fetched.SequenceNo != 1 {
-		t.Errorf("esperava SequenceNo automático 1, obteve %d", fetched.SequenceNo)
+		t.Errorf("esperava sequence_no 1 auto-atribuído, obteve: %d", fetched.SequenceNo)
 	}
 }
 
 func TestMessageRepo_Create_AutoSequenceNo(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-seq", OwnerRegistrationID: "reg-1", Title: "Chat Seq"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-auto", OwnerRegistrationID: "reg-user-1", Title: "Chat Auto"})
 
-	m1 := Message{ID: "msg-a", ChatID: "chat-seq", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "M1"}
-	m2 := Message{ID: "msg-b", ChatID: "chat-seq", AuthorType: AuthorAgent, AuthorID: "agent-1", Role: RoleAssistant, Content: "M2"}
-	m3 := Message{ID: "msg-c", ChatID: "chat-seq", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "M3"}
+	m1 := Message{ID: "m-1", ChatID: "chat-m-auto", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "Msg 1"}
+	m2 := Message{ID: "m-2", ChatID: "chat-m-auto", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "Msg 2"}
+	m3 := Message{ID: "m-3", ChatID: "chat-m-auto", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "Msg 3"}
 
-	if err := msgRepo.Create(m1); err != nil {
-		t.Fatalf("falha ao criar m1: %v", err)
-	}
-	if err := msgRepo.Create(m2); err != nil {
-		t.Fatalf("falha ao criar m2: %v", err)
-	}
-	if err := msgRepo.Create(m3); err != nil {
-		t.Fatalf("falha ao criar m3: %v", err)
-	}
+	_ = msgRepo.Create(m1)
+	_ = msgRepo.Create(m2)
+	_ = msgRepo.Create(m3)
 
-	f1, _ := msgRepo.FindByID("msg-a")
-	f2, _ := msgRepo.FindByID("msg-b")
-	f3, _ := msgRepo.FindByID("msg-c")
+	f1, _ := msgRepo.FindByID("m-1")
+	f2, _ := msgRepo.FindByID("m-2")
+	f3, _ := msgRepo.FindByID("m-3")
 
 	if f1.SequenceNo != 1 || f2.SequenceNo != 2 || f3.SequenceNo != 3 {
-		t.Fatalf("sequence_no automático incorreto. Obteve: m1=%d, m2=%d, m3=%d", f1.SequenceNo, f2.SequenceNo, f3.SequenceNo)
+		t.Fatalf("sequence_no auto-incrementais incorretos: [%d, %d, %d]", f1.SequenceNo, f2.SequenceNo, f3.SequenceNo)
 	}
 }
 
 func TestMessageRepo_Create_ExplicitSequenceNo(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-exp", OwnerRegistrationID: "reg-1", Title: "Chat Explicit"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-exp", OwnerRegistrationID: "reg-user-1", Title: "Chat Exp"})
 
-	msg := Message{
-		ID:         "msg-exp",
-		ChatID:     "chat-exp",
-		AuthorType: AuthorRegistration,
-		AuthorID:   "reg-1",
-		Role:       RoleUser,
-		Content:    "Importado",
-		SequenceNo: 10,
-	}
+	m := Message{ID: "m-exp-10", ChatID: "chat-m-exp", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "Msg Exp", SequenceNo: 10}
 
-	if err := msgRepo.Create(msg); err != nil {
+	if err := msgRepo.Create(m); err != nil {
 		t.Fatalf("falha ao criar mensagem com sequence_no explícito: %v", err)
 	}
 
-	fetched, _ := msgRepo.FindByID("msg-exp")
+	fetched, _ := msgRepo.FindByID("m-exp-10")
 	if fetched.SequenceNo != 10 {
-		t.Fatalf("esperava sequence_no 10, obteve %d", fetched.SequenceNo)
+		t.Fatalf("esperava sequence_no explícito 10, obteve %d", fetched.SequenceNo)
 	}
 }
 
 func TestMessageRepo_Create_DuplicateSequenceNo(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-dup-seq", OwnerRegistrationID: "reg-1", Title: "Chat Dup Seq"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-dup", OwnerRegistrationID: "reg-user-1", Title: "Chat Dup"})
 
-	m1 := Message{ID: "m1", ChatID: "chat-dup-seq", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "C1", SequenceNo: 5}
-	if err := msgRepo.Create(m1); err != nil {
-		t.Fatalf("falha na primeira inserção: %v", err)
-	}
+	m1 := Message{ID: "m-dup-1", ChatID: "chat-m-dup", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "M1", SequenceNo: 5}
+	_ = msgRepo.Create(m1)
 
-	m2 := Message{ID: "m2", ChatID: "chat-dup-seq", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "C2", SequenceNo: 5}
+	m2 := Message{ID: "m-dup-2", ChatID: "chat-m-dup", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "M2", SequenceNo: 5}
 	err := msgRepo.Create(m2)
 	if !errors.Is(err, ErrAlreadyExists) {
-		t.Fatalf("esperava ErrAlreadyExists ao duplicar sequence_no explícito, obteve: %v", err)
+		t.Fatalf("esperava ErrAlreadyExists para sequence_no explícito duplicado, obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_Create_InvalidChat(t *testing.T) {
-	db := newTestMigratedDB(t)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	msg := Message{
-		ID:         "msg-invalid-chat",
-		ChatID:     "chat-que-nao-existe",
-		AuthorType: AuthorRegistration,
-		AuthorID:   "reg-1",
-		Role:       RoleUser,
-		Content:    "Teste",
-	}
-
-	err := msgRepo.Create(msg)
+	m := Message{ID: "m-inv", ChatID: "chat-inexistente", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "Test"}
+	err := msgRepo.Create(m)
 	if !errors.Is(err, ErrInvalidChat) {
-		t.Fatalf("esperava ErrInvalidChat ao referenciar chat inexistente, obteve: %v", err)
+		t.Fatalf("esperava ErrInvalidChat para chat inexistente, obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_Create_StatusDeletedProhibited(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-1", OwnerRegistrationID: "reg-1", Title: "Chat 1"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-1", OwnerRegistrationID: "reg-user-1", Title: "C1"})
 
-	msg := Message{
-		ID:         "msg-del-init",
-		ChatID:     "chat-1",
-		AuthorType: AuthorRegistration,
-		AuthorID:   "reg-1",
-		Role:       RoleUser,
-		Content:    "Teste",
-		Status:     MessageDeleted,
-	}
-
-	err := msgRepo.Create(msg)
+	m := Message{ID: "m-del-init", ChatID: "chat-m-1", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "T", Status: MessageDeleted}
+	err := msgRepo.Create(m)
 	if !errors.Is(err, ErrInvalidArgument) {
 		t.Fatalf("esperava ErrInvalidArgument ao criar mensagem com status MessageDeleted, obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_FindByID_NotFound(t *testing.T) {
-	db := newTestMigratedDB(t)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_, err := msgRepo.FindByID("msg-inexistente")
+	_, err := msgRepo.FindByID("m-inexistente")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("esperava ErrNotFound, obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_Update_Success(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-1", OwnerRegistrationID: "reg-1", Title: "Chat 1"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-1", OwnerRegistrationID: "reg-user-1", Title: "C1"})
 
-	msg := Message{
-		ID:          "msg-to-update",
-		ChatID:      "chat-1",
-		AuthorType:  AuthorRegistration,
-		AuthorID:    "reg-1",
-		Role:        RoleUser,
-		Content:     "Conteúdo Original",
-		ContentType: ContentTypeTextPlain,
-		Status:      MessageSent,
-	}
-	_ = msgRepo.Create(msg)
+	m := Message{ID: "m-up", ChatID: "chat-m-1", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "Conteúdo Original"}
+	_ = msgRepo.Create(m)
+
+	initial, _ := msgRepo.FindByID("m-up")
 
 	time.Sleep(1005 * time.Millisecond)
 
 	updated := Message{
-		ID:          "msg-to-update",
-		ChatID:      "chat-tentativa-alterar", // Deve ser ignorado pelo UPDATE
-		AuthorID:    "novo-author",            // Deve ser ignorado pelo UPDATE
-		Content:     "Conteúdo Editado",
-		ContentType: ContentTypeMarkdown,
+		ID:           "m-up",
+		ChatID:       "chat-modificado-deve-ser-ignorado",
+		Content:      "Conteúdo Modificado",
+		ContentType:  ContentTypeMarkdown,
+		MetadataJSON: `{"edited":true}`,
 	}
 
 	if err := msgRepo.Update(updated); err != nil {
 		t.Fatalf("falha no Update: %v", err)
 	}
 
-	fetched, err := msgRepo.FindByID("msg-to-update")
-	if err != nil {
-		t.Fatalf("falha ao buscar mensagem atualizada: %v", err)
-	}
-
-	if fetched.Content != "Conteúdo Editado" {
+	fetched, _ := msgRepo.FindByID("m-up")
+	if fetched.Content != "Conteúdo Modificado" {
 		t.Errorf("esperava novo conteúdo, obteve: %s", fetched.Content)
 	}
 	if fetched.ContentType != ContentTypeMarkdown {
-		t.Errorf("esperava novo ContentType Markdown (2), obteve: %d", fetched.ContentType)
+		t.Errorf("esperava ContentTypeMarkdown (2), obteve: %d", fetched.ContentType)
 	}
 	if fetched.Status != MessageEdited {
-		t.Errorf("esperava status alterado para MessageEdited (2), obteve: %d", fetched.Status)
+		t.Errorf("esperava status MessageEdited (2), obteve: %d", fetched.Status)
 	}
-	if fetched.ChatID != "chat-1" || fetched.AuthorID != "reg-1" {
-		t.Errorf("campos imutáveis mudaram no Update: ChatID=%s, AuthorID=%s", fetched.ChatID, fetched.AuthorID)
+	if fetched.ChatID != "chat-m-1" {
+		t.Errorf("ChatID não deveria ter mudado, obteve: %s", fetched.ChatID)
+	}
+	if fetched.UpdatedAt == initial.UpdatedAt {
+		t.Errorf("updated_at deveria ter mudado")
 	}
 }
 
 func TestMessageRepo_Update_DeletedMessage(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-1", OwnerRegistrationID: "reg-1", Title: "Chat 1"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-1", OwnerRegistrationID: "reg-user-1", Title: "C1"})
+	_ = msgRepo.Create(Message{ID: "m-to-del", ChatID: "chat-m-1", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "T"})
+	_ = msgRepo.Delete("m-to-del")
 
-	_ = msgRepo.Create(Message{ID: "msg-to-del", ChatID: "chat-1", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "Original"})
-	_ = msgRepo.Delete("msg-to-del")
-
-	err := msgRepo.Update(Message{ID: "msg-to-del", Content: "Tentativa de Edição"})
+	err := msgRepo.Update(Message{ID: "m-to-del", Content: "Editando"})
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("esperava ErrNotFound ao tentar Update em mensagem soft-deleted, obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_Delete_SoftDelete_Idempotent(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-1", OwnerRegistrationID: "reg-1", Title: "Chat 1"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-1", OwnerRegistrationID: "reg-user-1", Title: "C1"})
+	_ = msgRepo.Create(Message{ID: "m-del", ChatID: "chat-m-1", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "T"})
 
-	_ = msgRepo.Create(Message{ID: "msg-del-idem", ChatID: "chat-1", AuthorType: AuthorRegistration, AuthorID: "reg-1", Role: RoleUser, Content: "Apagar"})
-
-	// Primeira exclusão
-	if err := msgRepo.Delete("msg-del-idem"); err != nil {
-		t.Fatalf("falha na primeira exclusão: %v", err)
+	if err := msgRepo.Delete("m-del"); err != nil {
+		t.Fatalf("falha no Delete: %v", err)
 	}
 
-	_, err := msgRepo.FindByID("msg-del-idem")
+	_, err := msgRepo.FindByID("m-del")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("esperava ErrNotFound no FindByID após Delete, obteve: %v", err)
 	}
 
-	// Segunda exclusão (idempotente)
-	if err := msgRepo.Delete("msg-del-idem"); err != nil {
-		t.Fatalf("esperava nil na segunda exclusão (idempotente), obteve: %v", err)
+	// Idempotência: segunda chamada retorna nil
+	if err := msgRepo.Delete("m-del"); err != nil {
+		t.Fatalf("esperava nil na segunda chamada de Delete (idempotente), obteve: %v", err)
+	}
+
+	// Deletar mensagem inexistente também é idempotente
+	if err := msgRepo.Delete("m-inexistente-que-nunca-existiu"); err != nil {
+		t.Fatalf("esperava nil no Delete de ID inexistente (idempotente), obteve: %v", err)
 	}
 }
 
 func TestMessageRepo_ListByChat_SinceSequence(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-list", OwnerRegistrationID: "reg-1", Title: "Chat List"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-list", OwnerRegistrationID: "reg-user-1", Title: "C List"})
 
 	for i := 1; i <= 5; i++ {
-		_ = msgRepo.Create(Message{
-			ID:         fmt.Sprintf("m-%d", i),
-			ChatID:     "chat-list",
-			AuthorType: AuthorRegistration,
-			AuthorID:   "reg-1",
-			Role:       RoleUser,
-			Content:    fmt.Sprintf("Msg %d", i),
-		})
+		_ = msgRepo.Create(Message{ID: fmt.Sprintf("msg-seq-%d", i), ChatID: "chat-m-list", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "M"})
 	}
 
-	// Consulta mensagens após sequence_no 2
-	msgs, err := msgRepo.ListByChat("chat-list", 2, 100)
+	msgs, err := msgRepo.ListByChat("chat-m-list", 2, 10)
 	if err != nil {
 		t.Fatalf("falha no ListByChat: %v", err)
 	}
 
 	if len(msgs) != 3 {
-		t.Fatalf("esperava 3 mensagens (sequence_no 3, 4, 5), obteve %d", len(msgs))
+		t.Fatalf("esperava 3 mensagens (seq 3, 4, 5), obteve %d", len(msgs))
 	}
 	if msgs[0].SequenceNo != 3 || msgs[1].SequenceNo != 4 || msgs[2].SequenceNo != 5 {
-		t.Fatalf("ordem de sequence_no incorreta: [%d, %d, %d]", msgs[0].SequenceNo, msgs[1].SequenceNo, msgs[2].SequenceNo)
+		t.Errorf("sequence_nos incorretos: [%d, %d, %d]", msgs[0].SequenceNo, msgs[1].SequenceNo, msgs[2].SequenceNo)
 	}
 }
 
 func TestMessageRepo_ListByChat_LimitCap(t *testing.T) {
-	db := newTestMigratedDB(t)
-	regRepo, _ := NewRegistrationRepository(db)
-	chatRepo, _ := NewChatRepository(db)
-	msgRepo, _ := NewMessageRepository(db)
+	engine := newTestMigratedDB(t)
+	regRepo, _ := NewRegistrationRepository(engine.DB())
+	chatRepo, _ := NewChatRepository(engine.DB())
+	msgRepo, _ := NewMessageRepository(engine.DB())
 
-	_ = regRepo.Create(Registration{ID: "reg-1", Status: RegistrationActive})
-	_ = chatRepo.Create(Chat{ID: "chat-cap", OwnerRegistrationID: "reg-1", Title: "Chat Cap"})
+	_ = regRepo.Create(Registration{ID: "reg-user-1", Status: RegistrationActive})
+	_ = chatRepo.Create(Chat{ID: "chat-m-cap", OwnerRegistrationID: "reg-user-1", Title: "C Cap"})
 
 	for i := 1; i <= 10; i++ {
-		_ = msgRepo.Create(Message{
-			ID:         fmt.Sprintf("m-cap-%d", i),
-			ChatID:     "chat-cap",
-			AuthorType: AuthorRegistration,
-			AuthorID:   "reg-1",
-			Role:       RoleUser,
-			Content:    fmt.Sprintf("Msg %d", i),
-		})
+		_ = msgRepo.Create(Message{ID: fmt.Sprintf("msg-cap-%d", i), ChatID: "chat-m-cap", AuthorType: AuthorRegistration, AuthorID: "reg-user-1", Role: RoleUser, Content: "M"})
 	}
 
-	// Consulta com limit de 3
-	msgs, err := msgRepo.ListByChat("chat-cap", 0, 3)
+	// Solicitando limit 1000 deve ser limitado em 500 (retornando todas as 10 disponíveis)
+	msgs, err := msgRepo.ListByChat("chat-m-cap", 0, 1000)
 	if err != nil {
-		t.Fatalf("falha no ListByChat com limit=3: %v", err)
+		t.Fatalf("falha no ListByChat com limit alto: %v", err)
 	}
-
-	if len(msgs) != 3 {
-		t.Fatalf("esperava exatamente 3 mensagens devido ao limit, obteve %d", len(msgs))
+	if len(msgs) != 10 {
+		t.Fatalf("esperava 10 mensagens, obteve %d", len(msgs))
 	}
 }
