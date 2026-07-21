@@ -61,6 +61,35 @@ func TestStorageEngine_OpenClose_Idempotency(t *testing.T) {
 	}
 }
 
+func TestStorageEngine_Reopen(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := tempDir + "/reopen_test.db"
+
+	engine, err := NewStorageEngine(Config{DatabasePath: dbPath})
+	if err != nil {
+		t.Fatalf("falha no NewStorageEngine: %v", err)
+	}
+
+	// Ciclo 1: Open -> Close
+	if err := engine.Open(); err != nil {
+		t.Fatalf("falha no primeiro Open(): %v", err)
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatalf("falha no primeiro Close(): %v", err)
+	}
+
+	// Ciclo 2: Re-Open -> Re-Close
+	if err := engine.Open(); err != nil {
+		t.Fatalf("falha no segundo Open() após Close(): %v", err)
+	}
+	if engine.DB() == nil {
+		t.Fatalf("esperava DB() != nil após re-abertura")
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatalf("falha no segundo Close(): %v", err)
+	}
+}
+
 func TestStorageEngine_PragmasValidation(t *testing.T) {
 	engine, err := NewStorageEngine(Config{DatabasePath: ":memory:"})
 	if err != nil {
@@ -92,7 +121,7 @@ func TestStorageEngine_PragmasValidation(t *testing.T) {
 		t.Fatalf("esperava busy_timeout == 5000, obteve: %d", timeout)
 	}
 
-	// Validar Journal Mode (em banco em RAM :memory: pode retornar "memory", mas os pragmas não falham)
+	// Validar Journal Mode
 	var journalMode string
 	if err := db.QueryRow("PRAGMA journal_mode;").Scan(&journalMode); err != nil {
 		t.Fatalf("falha ao consultar PRAGMA journal_mode: %v", err)

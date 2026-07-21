@@ -22,7 +22,7 @@ type StorageEngine struct {
 	config Config
 }
 
-// NewStorageEngine valida a configuração e instancia o StorageEngine.
+// NewStorageEngine valida a configuração, realiza cópia por valor do Config e instancia o StorageEngine.
 func NewStorageEngine(config Config) (*StorageEngine, error) {
 	if strings.TrimSpace(config.DatabasePath) == "" {
 		return nil, ErrInvalidConfig
@@ -37,7 +37,7 @@ func NewStorageEngine(config Config) (*StorageEngine, error) {
 	}, nil
 }
 
-// Open abre a conexão física com o SQLite, garante diretórios pai no SO e aplica pragmas de infraestrutura.
+// Open abre a conexão física com o SQLite, garante diretórios pai no SO e aplica os pragmas na ordem determinística.
 // É uma operação idempotente (retorna nil se o engine já estiver no estado Ready).
 func (e *StorageEngine) Open() error {
 	if e.db != nil {
@@ -51,22 +51,22 @@ func (e *StorageEngine) Open() error {
 		dir := filepath.Dir(path)
 		if dir != "." && dir != "" {
 			if err := os.MkdirAll(dir, 0700); err != nil {
-				return fmt.Errorf("%w: falha ao criar diretório do banco %s: %v", ErrDatabaseOpenFailed, dir, err)
+				return fmt.Errorf("%w: falha ao criar diretório do banco %s: %v", ErrStorageInitialization, dir, err)
 			}
 		}
 	}
 
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrDatabaseOpenFailed, err)
+		return fmt.Errorf("%w: %v", ErrStorageInitialization, err)
 	}
 
-	// Aplica Pragmas Fixos de Infraestrutura
+	// Aplica Pragmas Fixos de Infraestrutura na Ordem Determinística
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL;",
 		"PRAGMA foreign_keys = ON;",
 		fmt.Sprintf("PRAGMA busy_timeout = %d;", e.config.BusyTimeoutMs),
 		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA journal_mode = WAL;",
 	}
 
 	for _, pragma := range pragmas {
