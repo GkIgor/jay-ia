@@ -23,10 +23,11 @@ var (
 	ErrForeignKeyViolation = errors.New("storage: violação de chave estrangeira (foreign key)")
 
 	// Erros semânticos do repositório/domínio
-	ErrNotFound         = errors.New("storage: registro não encontrado")
-	ErrAlreadyExists    = errors.New("storage: registro já existe")
-	ErrInvalidArgument  = errors.New("storage: argumento inválido")
-	ErrDeleteRestricted = errors.New("storage: remoção restrita por dependência existente")
-	ErrInvalidOwner     = errors.New("storage: proprietário do registro não existe")
-	ErrInvalidChat      = errors.New("storage: chat de destino não existe")
+	ErrNotFound            = errors.New("storage: registro não encontrado")
+	ErrAlreadyExists       = errors.New("storage: registro já existe")
+	ErrInvalidArgument     = errors.New("storage: argumento inválido")
+	ErrDeleteRestricted    = errors.New("storage: remoção restrita por dependência existente")
+	ErrInvalidOwner        = errors.New("storage: proprietário do registro não existe")
+	ErrInvalidChat         = errors.New("storage: chat de destino não existe")
+	ErrInvalidRegistration = errors.New("storage: registro de origem não existe")
 )
