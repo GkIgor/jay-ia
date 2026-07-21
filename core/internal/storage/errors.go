@@ -18,15 +18,14 @@ var (
 	// ErrMigrationFailed indica falha na execução de uma migration (DDL ou commit da transação).
 	ErrMigrationFailed = errors.New("storage: falha na execução da migration")
 
-	// ErrNotFound é retornado quando o registro solicitado não existe no banco.
-	ErrNotFound = errors.New("storage: registro não encontrado")
+	// Erros técnicos da infraestrutura de banco de dados
+	ErrUniqueViolation     = errors.New("storage: violação de restrição única (unique)")
+	ErrForeignKeyViolation = errors.New("storage: violação de chave estrangeira (foreign key)")
 
-	// ErrAlreadyExists é retornado quando se tenta inserir um registro com ID já existente.
-	ErrAlreadyExists = errors.New("storage: registro já existe")
-
-	// ErrInvalidArgument é retornado quando um argumento obrigatório (ex: id) é inválido ou vazio.
-	ErrInvalidArgument = errors.New("storage: argumento inválido")
-
-	// ErrDeleteRestricted é retornado quando a remoção é bloqueada por dependência via FK RESTRICT.
+	// Erros semânticos do repositório/domínio
+	ErrNotFound         = errors.New("storage: registro não encontrado")
+	ErrAlreadyExists    = errors.New("storage: registro já existe")
+	ErrInvalidArgument  = errors.New("storage: argumento inválido")
 	ErrDeleteRestricted = errors.New("storage: remoção restrita por dependência existente")
+	ErrInvalidOwner     = errors.New("storage: proprietário do registro não existe")
 )

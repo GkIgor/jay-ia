@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func NewRegistrationRepository(db *sql.DB) (*RegistrationRepository, error) {
 }
 
 // Create insere um novo Registration no banco.
-//created_at e updated_at são preenchidos pelo banco via DEFAULT.
+// created_at e updated_at são preenchidos pelo banco via DEFAULT.
 func (r *RegistrationRepository) Create(reg Registration) error {
 	if strings.TrimSpace(reg.ID) == "" {
 		return ErrInvalidArgument
@@ -50,7 +51,7 @@ func (r *RegistrationRepository) Create(reg Registration) error {
 	query := `INSERT INTO registrations (id, metadata_json, status) VALUES (?, ?, ?);`
 	_, err := r.db.Exec(query, reg.ID, reg.MetadataJSON, reg.Status)
 	if err != nil {
-		return translateSQLiteError(err)
+		return mapRegistrationError(err)
 	}
 
 	return nil
@@ -75,7 +76,7 @@ func (r *RegistrationRepository) Upsert(reg Registration) error {
 	`
 	_, err := r.db.Exec(query, reg.ID, reg.MetadataJSON, reg.Status, now)
 	if err != nil {
-		return translateSQLiteError(err)
+		return mapRegistrationError(err)
 	}
 
 	return nil
@@ -138,7 +139,7 @@ func (r *RegistrationRepository) Delete(id string) error {
 	query := `DELETE FROM registrations WHERE id = ?;`
 	res, err := r.db.Exec(query, id)
 	if err != nil {
-		return translateSQLiteError(err)
+		return mapRegistrationError(err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -153,18 +154,15 @@ func (r *RegistrationRepository) Delete(id string) error {
 	return nil
 }
 
-// translateSQLiteError mapeia erros do driver modernc.org/sqlite para sentinelas do pacote.
-func translateSQLiteError(err error) error {
-	if err == nil {
-		return nil
-	}
-	msg := err.Error()
+// mapRegistrationError converte erros técnicos de banco em erros semânticos de Registration.
+func mapRegistrationError(err error) error {
+	techErr := translateSQLiteError(err)
 	switch {
-	case strings.Contains(msg, "UNIQUE constraint failed"):
+	case errors.Is(techErr, ErrUniqueViolation):
 		return ErrAlreadyExists
-	case strings.Contains(msg, "FOREIGN KEY constraint failed"):
+	case errors.Is(techErr, ErrForeignKeyViolation):
 		return ErrDeleteRestricted
 	default:
-		return err
+		return techErr
 	}
 }
