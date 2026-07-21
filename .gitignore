@@ -2,3 +2,5 @@
 /jay
 /jayd
 bin/
+heaptrack.*.zst
+*.zst

@@ -21,11 +21,26 @@ A Fase 2 focou na criação da interface do usuário (Frontend) utilizando tecno
     *   **EventDispatcher:** Sistema de despacho de eventos para roteamento de mensagens internas de forma eficiente.
     *   **Avatar State Machine:** Máquina de estados para gerenciar os comportamentos e animações do avatar de forma independente da lógica principal.
 
-## O Que Falta para Completar Totalmente as Fases 1 e 2 🚧
+## Fase 3: Concluída ✅
 
-Embora os pilares principais tenham sido construídos, os seguintes itens ainda precisam ser desenvolvidos para finalizar completamente estas fases com sucesso:
+A Fase 3 estabeleceu o sistema de execução nativa de ferramentas e function calling do LLM:
+
+*   **Native Tool Provider:** Abstração de execução nativa de ferramentas (`read_file`, `write_file`, `run_command`, `list_dir`).
+*   **Consentimento Multimodal de Segurança:** Fluxo de autorização bloqueante no Frontend Raylib.
+*   **LLM Router Agnóstico & Function Calling Multi-Turno:** Loop no Daemon com limites de iteratividade e suporte multi-modelo.
+
+## Fase 3.5: Em Desenvolvimento 🚀 (Consolidação do Core)
+
+A Fase 3.5 consolida o trabalho fundamental acumulado nas Fases 1, 2 e 3, migrando a arquitetura do Core para um **Serviço Orientado a Recursos** estritamente reativo (**Pull-Only**) com estado 100% persistido em **SQLite**:
+
+*   **Persistência SQLite & Transações (ACID):** Eliminação de mapas/slices em memória. Tabelas WAL para `registrations`, `shared_rules`, `chats`, `messages`, `tools` e `voice_sessions`.
+*   **Protocolo Pull-Only & Identidades Lógicas (`Registration`):** Desacoplamento entre conexões efêmeras de socket e identidades conhecidas.
+*   **Motor de Permissões Declarativo (`SharedRule`):** Avaliador estrito por escopo e padrões de casamento (`EXACT`, `PREFIX`, `WILDCARD`, `REGEX`).
+*   **Message Service & Chat Processing Service:** Separação do CRUD de mensagens da execução de IA.
+*   **PRD de Referência:** [`wiki/prds/core-resource-architecture.md`](../wiki/prds/core-resource-architecture.md)
+
+## O Que Falta para Completar Totalmente as Fases 1, 2 e 3 🚧
 
 *   **CI/CD (Integração e Entrega Contínuas):** Configuração de pipelines automatizados para testes, build e validação de ambos os lados (Core e Frontend).
-*   **Polimento Visual:** Melhorias na interface gráfica utilizando os recursos do Raylib para garantir uma experiência de usuário (UX) e interface de usuário (UI) mais refinadas e responsivas.
-*   **Testes Unitários para o Frontend:** Implementação de uma suíte de testes robusta para validar os componentes em C++ (como EventDispatcher, IPC Client e a State Machine).
-*   **Mapeamento Completo de IPC no Lado do Core:** Expansão e mapeamento completo da estrutura de Sockets no Core em Go para suportar todos os eventos e dados que o Frontend precisa consumir e enviar, garantindo paridade total entre os sistemas.
+*   **Polimento Visual & Scroll:** Melhorias na interface gráfica utilizando os novos componentes de layout de texto e scrollbar.
+*   **Testes Unitários para o Frontend e Core SQLite:** Implementação de suítes de testes automatizados para a camada de persistência SQLite, Permission Evaluator e componentes C++.

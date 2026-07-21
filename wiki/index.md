@@ -140,6 +140,8 @@ Documentos:
 - [`prds/phase-1.md`](./prds/phase-1.md)
 - [`prds/phase-2.md`](./prds/phase-2.md)
 - [`prds/phase-3.md`](./prds/phase-3.md)
+- [`prds/phase-3.5-core-architecture.md`](./prds/phase-3.5-core-architecture.md) — *Consolidação do Core SQLite (Pull-Only)*
+- [`prds/core-resource-architecture.md`](./prds/core-resource-architecture.md)
 - [`prds/phase-4.md`](./prds/phase-4.md)
 - [`prds/phase-5.md`](./prds/phase-5.md)
 - [`prds/phase-6.md`](./prds/phase-6.md)
@@ -494,3 +496,25 @@ Esta wiki documenta responsabilidades, princípios e decisões arquiteturais do 
 Ela não deve detalhar bibliotecas, frameworks ou tecnologias específicas, exceto quando essas escolhas já tiverem sido formalizadas por ADR.
 
 A wiki do projeto não deve ser confundida com a futura wiki interna de conhecimento da própria Jay.
+
+---
+
+# Localização física de Código-Fonte e Builds
+
+Para localizar o código-fonte concreto e gerenciar a compilação do ecossistema, utilize os seguintes caminhos e arquivos relativos no ambiente:
+
+* **Workspace Raiz (Orquestrador)**: pasta raiz que engloba os sub-repositórios.
+  - Contém o [Makefile](../Makefile) raiz que centraliza os comandos de compilação de todo o sistema.
+  - Comandos principais:
+    * `make build` / `make run`: compila e executa o ecossistema no modo padrão.
+    * `make build-debug` / `make run-debug`: compila e roda no modo Debug (habilitando as flags `-g` e AddressSanitizer no C++, e `-gcflags` para Delve no Go).
+    * `make clean`: limpa os arquivos temporários de compilação de ambos os repositórios.
+
+* **Jay Core Daemon (Go)**: repositório `./` (este diretório de `jay-ia`).
+  - Contém o daemon operacional em Go (Conversation, Memory, Planner e roteamento de LLMs).
+  - Possui o seu [Makefile](Makefile) local.
+  - ADRs de arquitetura estão arquivadas na pasta [`docs/adr/`](../docs/adr/).
+
+* **Jay Frontend (C++23)**: repositório vizinho `../jay-frontend-cpp/`.
+  - Contém a interface do usuário gráfica (Raylib/GLFW), o avatar animado de forma reativa a 60 FPS e o renderizador de chat.
+  - Gerenciado via CMake em `../jay-frontend-cpp/CMakeLists.txt` com suporte a depuração via `-DENABLE_ASAN=OFF` para profiling.
