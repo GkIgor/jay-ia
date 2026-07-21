@@ -16,7 +16,7 @@ A Task 09 introduz a especificação de serialização e estruturação de mensa
 
 ---
 
-## 2. Princípio Arquitetural do SDK IPC
+## 2. Princípios Arquiteturais do SDK IPC
 
 > **O pacote `sdk/ipc` é um pacote folha (zero dependências internas de `core/internal`). Ele define exclusivamente os contratos de dados, enums de protocolo, estruturas de envelope e utilitários de serialização JSON.**
 
@@ -24,78 +24,37 @@ A Task 09 introduz a especificação de serialização e estruturação de mensa
 
 ## 3. Enums e Constantes do Protocolo v1
 
-### 3.1. Versão do Protocolo
 ```go
-const ProtocolVersionCurrent = 1
-```
+type ProtocolVersion uint8
+const ProtocolVersionCurrent ProtocolVersion = 1
 
-### 3.2. Tipo de Mensagem (`MessageType`)
-```go
-type MessageType int
+type MessageType uint16
+type ErrorCode uint16
 
-const (
-    MsgRegisterClient     MessageType = 100
-    MsgUnregisterClient   MessageType = 101
-    MsgUpdateRegistration MessageType = 102
-    MsgGetRegistration    MessageType = 103
-    MsgListRegistrations  MessageType = 104
-    MsgUpdateSharedRules  MessageType = 105
-
-    MsgCreateChat MessageType = 200
-    MsgDeleteChat MessageType = 201
-    MsgRenameChat MessageType = 202
-    MsgGetChat    MessageType = 203
-    MsgListChats  MessageType = 204
-
-    MsgCreateMessage MessageType = 300
-    MsgUpdateMessage MessageType = 301
-    MsgDeleteMessage MessageType = 302
-    MsgGetMessages   MessageType = 303
-
-    MsgProcessChat MessageType = 350
-
-    MsgRegisterTool   MessageType = 400
-    MsgUnregisterTool MessageType = 401
-    MsgGetTool        MessageType = 402
-    MsgListTools      MessageType = 403
-
-    MsgCreateVoiceSession MessageType = 500
-    MsgGetVoiceSession    MessageType = 501
-    MsgCloseVoiceSession  MessageType = 502
-)
-```
-
-### 3.3. Códigos de Erro Padronizados (`ErrorCode`)
-```go
-type ErrorCode int
-
-const (
-    ErrSuccess          ErrorCode = 0
-    ErrInvalidFormat    ErrorCode = 4000
-    ErrUnauthorized     ErrorCode = 4001
-    ErrForbidden        ErrorCode = 4003
-    ErrNotFound         ErrorCode = 4004
-    ErrConflict         ErrorCode = 4009
-    ErrInternalDatabase ErrorCode = 5000
-    ErrNotImplemented   ErrorCode = 5001
-)
+// Enums próprios do SDK para isolamento de dependências
+type AuthorType uint8
+type MessageRole uint8
+type MessageContentType uint8
+type MessageStatus uint8
+type ChatStatus uint8
+type ToolStatus uint8
 ```
 
 ---
 
-## 4. Estrutura de Envelopes do Protocolo
+## 4. Estrutura de Envelopes do Protocolo e Exemplos JSON
 
 ```go
 type RequestEnvelope struct {
-    ProtocolVersion int             `json:"protocol_version"`
-    RequestID       string          `json:"request_id"`
+    ProtocolVersion ProtocolVersion `json:"protocol_version"`
+    RequestID       string          `json:"request_id"` // UUID v4
     ClientID        string          `json:"client_id"`
     Type            MessageType     `json:"type"`
     Payload         json.RawMessage `json:"payload"`
 }
 
 type ResponseEnvelope struct {
-    ProtocolVersion int             `json:"protocol_version"`
+    ProtocolVersion ProtocolVersion `json:"protocol_version"`
     RequestID       string          `json:"request_id"`
     Type            MessageType     `json:"type"`
     Status          ErrorCode       `json:"status"`
@@ -104,19 +63,28 @@ type ResponseEnvelope struct {
 }
 
 type ErrorInfo struct {
-    Code    ErrorCode `json:"code"`
-    Message string    `json:"message"`
-    Details string    `json:"details,omitempty"`
+    Message string `json:"message"`
+    Details string `json:"details,omitempty"`
 }
 ```
 
 ---
 
-## 5. Critérios de Aceite da Task
+## 5. Regras de Compatibilidade e Evolução do Protocolo
+
+1. **Garantia de Payload Não-Nulo**: `Payload` é sempre serializado como `{}` caso a struct de entrada seja `nil`. Nunca produz `null`.
+2. **Eliminação de Redundância em Erros**: O `ResponseEnvelope` possui `Status ErrorCode`. O objeto interno `ErrorInfo` não duplica o código e contém apenas `message` e `details`.
+3. **Versões Incompatíveis**: Requisições com `protocol_version > ProtocolVersionCurrent` são rejeitadas com `ErrInvalidFormat (4000)`.
+
+---
+
+## 6. Critérios de Aceite da Task
 
 - [ ] Pacote `sdk/ipc` compilando sem erros (`go build ./...`).
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
-- [ ] Todos os enums de `MessageType` e `ErrorCode` definidos com os códigos numéricos exatos do PRD.
-- [ ] Construtores helper `NewRequestEnvelope`, `NewResponseEnvelope` e `NewErrorResponseEnvelope` disponíveis.
-- [ ] `json.RawMessage` utilizado nos envelopes para desacoplamento seguro de payload.
+- [ ] Enums de `MessageType` (`uint16`) e `ErrorCode` (`uint16`) com valores numéricos do PRD.
+- [ ] Enums de domínio próprios do SDK (`AuthorType`, `MessageRole`, `MessageContentType`, etc.) definidos no pacote.
+- [ ] Eliminação da redundância no `ErrorInfo` (somente `message` e `details`).
+- [ ] Garantia de que `Payload` nunca é `null` (fallback para `{}`).
+- [ ] Helpers `MarshalPayload`, `UnmarshalPayload`, `NewRequestEnvelope`, `NewResponseEnvelope` e `NewErrorResponseEnvelope` implementados.
 - [ ] 100% dos testes unitários de serialização JSON aprovados.
