@@ -30,4 +30,5 @@ var (
 	ErrInvalidOwner        = errors.New("storage: proprietário do registro não existe")
 	ErrInvalidChat         = errors.New("storage: chat de destino não existe")
 	ErrInvalidRegistration = errors.New("storage: registro de origem não existe")
+	ErrOwnershipConflict   = errors.New("storage: recurso pertence a outra identidade registrada")
 )
