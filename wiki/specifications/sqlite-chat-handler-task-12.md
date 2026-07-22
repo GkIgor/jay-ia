@@ -38,7 +38,7 @@ A Task 12 implementa o módulo de **Gerenciamento de Chats (`Chat`)**:
 [ ChatHandler (core/internal/api) ]
    - Desserializa Payloads dedicados (CreateChatRequest, DeleteChatRequest, etc.)
    - Invoca os métodos do ChatService
-   - Converte entidades storage.Chat para ipc.ChatDTO (chat_mapper.go)
+   - Converte entidades storage.Chat para ipc.ChatDTO (chat_mapper.go com toChatDTOs)
    - Constrói ipc.ResponseEnvelope
            │
            ▼
@@ -56,7 +56,8 @@ A Task 12 implementa o módulo de **Gerenciamento de Chats (`Chat`)**:
 - [ ] Separação estrita nas 3 camadas (`Router` → `ChatHandler` → `ChatService` → Repositories/Evaluator).
 - [ ] Mapeamento dos 5 comandos de Chat (200 a 204) com DTOs dedicados.
 - [ ] Ocultação de segurança em `GetChat` (retorna `storage.ErrNotFound` para não autorizados).
-- [ ] Suporte a *Soft Delete* preservando dados do chat.
-- [ ] Suporte a consulta de chats compartilhados via `include_shared = true`.
+- [ ] Estratégia de resolução de `ListChats(includeShared)` documentada e testada.
+- [ ] Ordenação padrão de `ListChats` por `created_at DESC`.
+- [ ] Mappers `toChatDTO` e `toChatDTOs` centralizados em `chat_mapper.go`.
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
 - [ ] 100% dos testes unitários do Service e dos Handlers IPC aprovados (inclusive com `-race`).
