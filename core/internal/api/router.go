@@ -139,8 +139,8 @@ func mapDomainErrorToIPC(err error) (ipc.ErrorCode, string) {
 		return ipc.ErrConflict, "conflito de recurso ou propriedade"
 	case errors.Is(err, storage.ErrInvalidArgument), errors.Is(err, permission.ErrInvalidArgument):
 		return ipc.ErrInvalidFormat, "argumento inválido ou malformado"
-	case errors.Is(err, storage.ErrDeleteRestricted):
-		return ipc.ErrForbidden, "operação bloqueada por dependência de recurso"
+	case errors.Is(err, storage.ErrForbidden), errors.Is(err, storage.ErrDeleteRestricted):
+		return ipc.ErrForbidden, "operação não autorizada ou bloqueada por dependência de recurso"
 	case errors.Is(err, storage.ErrInvalidOwner), errors.Is(err, storage.ErrInvalidChat), errors.Is(err, storage.ErrInvalidRegistration):
 		return ipc.ErrNotFound, "recurso pai não existe"
 	default:

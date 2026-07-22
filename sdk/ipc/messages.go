@@ -123,6 +123,31 @@ type CreateChatResponse struct {
 	Chat ChatDTO `json:"chat"`
 }
 
+type DeleteChatRequest struct {
+	ChatID string `json:"chat_id"`
+}
+
+type DeleteChatResponse struct {
+	Success bool `json:"success"`
+}
+
+type RenameChatRequest struct {
+	ChatID   string `json:"chat_id"`
+	NewTitle string `json:"new_title"`
+}
+
+type RenameChatResponse struct {
+	Chat ChatDTO `json:"chat"`
+}
+
+type GetChatRequest struct {
+	ChatID string `json:"chat_id"`
+}
+
+type GetChatResponse struct {
+	Chat ChatDTO `json:"chat"`
+}
+
 type ListChatsRequest struct {
 	IncludeShared bool `json:"include_shared,omitempty"`
 	Limit         int  `json:"limit,omitempty"`

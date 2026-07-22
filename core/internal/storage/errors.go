@@ -26,6 +26,7 @@ var (
 	ErrNotFound            = errors.New("storage: registro não encontrado")
 	ErrAlreadyExists       = errors.New("storage: registro já existe")
 	ErrInvalidArgument     = errors.New("storage: argumento inválido")
+	ErrForbidden           = errors.New("storage: acesso não autorizado ao recurso")
 	ErrDeleteRestricted    = errors.New("storage: remoção restrita por dependência existente")
 	ErrInvalidOwner        = errors.New("storage: proprietário do registro não existe")
 	ErrInvalidChat         = errors.New("storage: chat de destino não existe")
