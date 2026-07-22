@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -24,13 +25,23 @@ type Server struct {
 	listener   net.Listener
 	quit       chan struct{}
 	handler    func(ipc.Message) ipc.Message
+	rawHandler func(ctx context.Context, rawRequest []byte) []byte
 
 	mu      sync.RWMutex
 	clients map[net.Conn]chan interface{}
 }
 
-// NewServer creates a new IPC server.
+// NewServer creates a new IPC server using legacy Message handler.
 func NewServer(handler func(ipc.Message) ipc.Message) (*Server, error) {
+	return newServerInternal(handler, nil)
+}
+
+// NewRawServer creates a new IPC server using raw bytes RPC handler (Router).
+func NewRawServer(rawHandler func(ctx context.Context, rawRequest []byte) []byte) (*Server, error) {
+	return newServerInternal(nil, rawHandler)
+}
+
+func newServerInternal(handler func(ipc.Message) ipc.Message, rawHandler func(ctx context.Context, rawRequest []byte) []byte) (*Server, error) {
 	socketPath := getSocketPath()
 
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0700); err != nil {
@@ -43,6 +54,7 @@ func NewServer(handler func(ipc.Message) ipc.Message) (*Server, error) {
 		socketPath: socketPath,
 		quit:       make(chan struct{}),
 		handler:    handler,
+		rawHandler: rawHandler,
 		clients:    make(map[net.Conn]chan interface{}),
 	}, nil
 }
@@ -111,36 +123,57 @@ func (s *Server) handleConnection(conn net.Conn) {
 	go func() {
 		encoder := json.NewEncoder(conn)
 		for msg := range writeChan {
-			if err := encoder.Encode(msg); err != nil {
-				log.Printf("Failed to encode message: %v", err)
-				conn.Close()
-				return
+			if rawBytes, ok := msg.([]byte); ok {
+				var rawMsg json.RawMessage = rawBytes
+				if err := encoder.Encode(rawMsg); err != nil {
+					log.Printf("Failed to encode raw message: %v", err)
+					conn.Close()
+					return
+				}
+			} else {
+				if err := encoder.Encode(msg); err != nil {
+					log.Printf("Failed to encode message: %v", err)
+					conn.Close()
+					return
+				}
 			}
 		}
 	}()
 
 	decoder := json.NewDecoder(conn)
 	for {
-		var msg ipc.Message
-		if err := decoder.Decode(&msg); err != nil {
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
 			log.Printf("IPC connection closed or decode error: %v", err)
 			return
 		}
 
-		log.Printf("Received message: %+v", msg)
-
-		// Process commands concurrently so the read loop remains free
-		// to process subsequent messages (like permission responses).
-		go func(m ipc.Message) {
+		go func(rawBytes []byte) {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Printf("IPC response dropped because client disconnected: %v", r)
 				}
 			}()
 
+			if s.rawHandler != nil {
+				respBytes := s.rawHandler(context.Background(), rawBytes)
+				select {
+				case writeChan <- respBytes:
+				default:
+					log.Printf("Write queue full for %s, dropping response", conn.RemoteAddr())
+				}
+				return
+			}
+
+			// Legacy handler
+			var msg ipc.Message
+			if err := json.Unmarshal(rawBytes, &msg); err != nil {
+				return
+			}
+
 			var resp ipc.Message
 			if s.handler != nil {
-				resp = s.handler(m)
+				resp = s.handler(msg)
 			} else {
 				resp = ipc.Message{
 					Type: "response",
@@ -151,13 +184,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 				}
 			}
 
-			// Queue response to the writer loop safely
 			select {
 			case writeChan <- resp:
 			default:
 				log.Printf("Write queue full for %s, dropping response", conn.RemoteAddr())
 			}
-		}(msg)
+		}(raw)
 	}
 }
 

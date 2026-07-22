@@ -2,61 +2,224 @@ package daemon
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"syscall"
-	"time"
 
-	"github.com/GkIgor/jay-ia/core/internal/bus"
-	"github.com/GkIgor/jay-ia/core/internal/conversation"
+	"github.com/GkIgor/jay-ia/core/internal/api"
 	"github.com/GkIgor/jay-ia/core/internal/ipc"
 	"github.com/GkIgor/jay-ia/core/internal/llm"
-	"github.com/GkIgor/jay-ia/core/internal/memory"
-	"github.com/GkIgor/jay-ia/core/internal/planner"
-	"github.com/GkIgor/jay-ia/core/internal/state"
-	"github.com/GkIgor/jay-ia/core/internal/tools"
-	sdkipc "github.com/GkIgor/jay-ia/sdk/ipc"
+	"github.com/GkIgor/jay-ia/core/internal/permission"
+	"github.com/GkIgor/jay-ia/core/internal/service"
+	"github.com/GkIgor/jay-ia/core/internal/storage"
 )
 
-// PermissionTimeout define o tempo limite de aprovação da interface
-const PermissionTimeout = 30 * time.Second
-
-// MaxPlanningIterations define o limite de segurança contra loops infinitos de IA
-const MaxPlanningIterations = 5
-
-// Daemon coordinates all core components
-type Daemon struct {
-	currentState   state.State
-	memoryStore    memory.MemoryStore
-	ipcServer      *ipc.Server
-	planner        planner.Planner
-	bus            *bus.InternalBus
-	toolBus        *tools.ToolBus
-	convManager    *conversation.Manager
-	pendingPermsMu sync.Mutex
-	pendingPerms   map[string]chan bool
-	nextRequestID  uint64
+// Repositories agrupa a suíte de repositórios de persistência do Jay Core.
+type Repositories struct {
+	RegRepo  *storage.RegistrationRepository
+	RuleRepo *storage.SharedRuleRepository
+	ChatRepo *storage.ChatRepository
+	MsgRepo  *storage.MessageRepository
+	ToolRepo *storage.ToolRepository
 }
 
-// New creates a new Jay Daemon
+// Services agrupa a suíte de serviços de aplicação do Jay Core.
+type Services struct {
+	RegSvc       *service.RegistrationService
+	ChatSvc      *service.ChatService
+	MsgSvc       *service.MessageService
+	ToolSvc      *service.ToolService
+	ProcessorSvc *service.ProcessorService
+	Evaluator    *permission.Evaluator
+}
+
+// Daemon atua como o Composition Root da aplicação Jay Core, construindo o grafo completo de dependências sem conter regras de negócio.
+type Daemon struct {
+	engine    *storage.StorageEngine
+	router    *api.Router
+	server    *ipc.Server
+	ctx       context.Context
+	cancelCtx context.CancelFunc
+}
+
+// New cria e inicializa o Composition Root do Daemon.
 func New() (*Daemon, error) {
-	b := bus.NewInternalBus()
-	tb := tools.NewToolBus()
+	dbPath := resolveDatabasePath()
+	return NewDaemon(dbPath)
+}
 
-	// Registra provedor nativo e ferramentas explíticas de arquivos
-	np := tools.NewNativeProvider()
-	np.RegisterTool(tools.ReadFileTool{})
-	np.RegisterTool(tools.WriteFileTool{})
-	np.RegisterTool(tools.ListDirTool{})
-	tb.RegisterProvider(np)
+// NewDaemon constrói a instância do Daemon com um caminho customizado de banco de dados.
+func NewDaemon(dbPath string) (*Daemon, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 
-	provider := os.Getenv("LLM_PROVIDER")
+	// 1. Constrói a Camada de Armazenamento SQLite
+	engine, err := buildStorage(dbPath)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("daemon: falha ao inicializar banco de dados: %w", err)
+	}
+
+	// 2. Constrói os Repositórios
+	repos, err := buildRepositories(engine.DB())
+	if err != nil {
+		cancel()
+		_ = engine.Close()
+		return nil, fmt.Errorf("daemon: falha ao inicializar repositórios: %w", err)
+	}
+
+	// 3. Constrói o Cliente LLM
+	llmClient, err := buildLLMClient()
+	if err != nil {
+		cancel()
+		_ = engine.Close()
+		return nil, fmt.Errorf("daemon: falha ao inicializar provedor LLM: %w", err)
+	}
+
+	// 4. Constrói os Serviços de Aplicação
+	services, err := buildServices(repos, llmClient)
+	if err != nil {
+		cancel()
+		_ = engine.Close()
+		return nil, fmt.Errorf("daemon: falha ao inicializar serviços: %w", err)
+	}
+
+	// 5. Constrói o Roteador RPC e Cadastra os Handlers
+	router, err := buildHandlersAndRouter(services)
+	if err != nil {
+		cancel()
+		_ = engine.Close()
+		return nil, fmt.Errorf("daemon: falha ao registrar rotas RPC: %w", err)
+	}
+
+	// 6. Constrói o Servidor de Socket Unix IPC
+	server, err := buildServer(router)
+	if err != nil {
+		cancel()
+		_ = engine.Close()
+		return nil, fmt.Errorf("daemon: falha ao iniciar servidor IPC: %w", err)
+	}
+
+	return &Daemon{
+		engine:    engine,
+		router:    router,
+		server:    server,
+		ctx:       ctx,
+		cancelCtx: cancel,
+	}, nil
+}
+
+// Start inicia o servidor Unix Socket e bloqueia até o recebimento de sinais de encerramento do SO (SIGINT/SIGTERM).
+func (d *Daemon) Start() error {
+	log.Println("Iniciando Jay Core Daemon (Composition Root)...")
+
+	if err := d.server.Start(); err != nil {
+		return fmt.Errorf("daemon: falha ao iniciar servidor de socket IPC: %w", err)
+	}
+
+	log.Println("Jay Core Daemon pronto e aguardando requisições IPC.")
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-sigChan
+	log.Printf("Sinal de término recebido (%v). Encerrando Daemon graciosamente...", sig)
+
+	return d.Stop()
+}
+
+// Stop encerra ordenadamente o Daemon (cancelCtx -> server.Stop -> engine.Close).
+func (d *Daemon) Stop() error {
+	log.Println("Encerrando Jay Core Daemon...")
+
+	if d.cancelCtx != nil {
+		d.cancelCtx()
+	}
+
+	if d.server != nil {
+		d.server.Stop()
+	}
+
+	if d.engine != nil {
+		if err := d.engine.Close(); err != nil {
+			log.Printf("Erro ao fechar conexões com SQLite: %v", err)
+			return err
+		}
+	}
+
+	log.Println("Jay Core Daemon encerrado com sucesso.")
+	return nil
+}
+
+// Router retorna o Roteador RPC instanciado.
+func (d *Daemon) Router() *api.Router {
+	return d.router
+}
+
+// --- Builders Privados ---
+
+func buildStorage(dbPath string) (*storage.StorageEngine, error) {
+	cfg := storage.Config{
+		DatabasePath: dbPath,
+	}
+	engine, err := storage.NewStorageEngine(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.Open(); err != nil {
+		return nil, err
+	}
+
+	migrator, err := storage.NewMigrationEngine(engine.DB())
+	if err != nil {
+		_ = engine.Close()
+		return nil, err
+	}
+	if err := migrator.Run(); err != nil {
+		_ = engine.Close()
+		return nil, err
+	}
+
+	return engine, nil
+}
+
+func buildRepositories(db *sql.DB) (*Repositories, error) {
+	regRepo, err := storage.NewRegistrationRepository(db)
+	if err != nil {
+		return nil, err
+	}
+	ruleRepo, err := storage.NewSharedRuleRepository(db)
+	if err != nil {
+		return nil, err
+	}
+	chatRepo, err := storage.NewChatRepository(db)
+	if err != nil {
+		return nil, err
+	}
+	msgRepo, err := storage.NewMessageRepository(db)
+	if err != nil {
+		return nil, err
+	}
+	toolRepo, err := storage.NewToolRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Repositories{
+		RegRepo:  regRepo,
+		RuleRepo: ruleRepo,
+		ChatRepo: chatRepo,
+		MsgRepo:  msgRepo,
+		ToolRepo: toolRepo,
+	}, nil
+}
+
+func buildLLMClient() (llm.Client, error) {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
 	apiKey := ""
 	model := ""
 
@@ -76,439 +239,109 @@ func New() (*Daemon, error) {
 		model = os.Getenv("OPENROUTER_MODEL")
 	case "gemini":
 		apiKey = os.Getenv("GEMINI_API_KEY")
+	case "mock":
+		log.Println("AVISO: Provedor LLM configurado para 'mock'.")
+	default:
+		return nil, fmt.Errorf("provedor LLM desconhecido ou inválido '%s'", provider)
 	}
 
-	var llmClient llm.Client
-	var err error
+	return llm.NewClient(llm.Config{
+		Provider: provider,
+		APIKey:   apiKey,
+		Model:    model,
+	})
+}
 
-	if provider == "mock" {
-		log.Println("WARNING: No LLM API Key found in environment. Initializing Daemon with 'mock' LLM Client.")
-		llmClient, err = llm.NewClient(llm.Config{Provider: "mock"})
-	} else {
-		log.Printf("Initializing Daemon with LLM Provider: %s", provider)
-		llmClient, err = llm.NewClient(llm.Config{
-			Provider: provider,
-			APIKey:   apiKey,
-			Model:    model,
-		})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize LLM client: %w", err)
-	}
+func buildServices(repos *Repositories, llmClient llm.Client) (*Services, error) {
+	evaluator := permission.NewEvaluator()
 
-	d := &Daemon{
-		currentState: state.Idle,
-		memoryStore:  memory.NewInMemoryStore(),
-		planner:      planner.NewLLMPlanner(llmClient, tb),
-		bus:          b,
-		toolBus:      tb,
-		convManager:  conversation.NewManager(),
-		pendingPerms: make(map[string]chan bool),
-	}
-
-	ipcServer, err := ipc.NewServer(d.handleIPCMessage)
+	regSvc, err := service.NewRegistrationService(repos.RegRepo, repos.RuleRepo, evaluator)
 	if err != nil {
 		return nil, err
 	}
-	d.ipcServer = ipcServer
 
-	// Subscribe IPC Server to the InternalBus
-	ch := d.bus.Subscribe(100)
-	go func() {
-		for ev := range ch {
-			switch e := ev.(type) {
-			case bus.StateChangedEvent:
-				d.ipcServer.Broadcast(ipc.IPCEvent{
-					Type:    e.EventName(),
-					Payload: map[string]string{"state": strings.ToLower(e.NewState)},
-				})
-			case bus.AnimationPlayEvent:
-				d.ipcServer.Broadcast(ipc.IPCEvent{
-					Type:    e.EventName(),
-					Payload: map[string]string{"animation": e.Animation},
-				})
-			case bus.ToolProgressEvent:
-				d.ipcServer.Broadcast(ipc.IPCEvent{
-					Type: e.EventName(),
-					Payload: map[string]any{
-						"tool":    e.ToolName,
-						"state":   e.State,
-						"percent": e.Percent,
-						"message": e.Message,
-					},
-				})
-			case bus.ToolCompletedEvent:
-				d.ipcServer.Broadcast(ipc.IPCEvent{
-					Type: e.EventName(),
-					Payload: map[string]any{
-						"tool":    e.ToolName,
-						"success": e.Success,
-						"output":  e.Output,
-						"error":   e.Error,
-					},
-				})
-			case bus.PermissionRequestedEvent:
-				d.ipcServer.Broadcast(ipc.IPCEvent{
-					Type: "request.permission",
-					Payload: map[string]any{
-						"ref_id":     e.RequestID,
-						"permission": e.Permission,
-						"prompt":     e.Prompt,
-					},
-				})
-			}
-		}
-	}()
-
-	return d, nil
-}
-
-// Start starts the daemon and blocks until stopped
-func (d *Daemon) Start() error {
-	log.Printf("Starting Jay Daemon... Current State: %s", d.currentState)
-
-	if err := d.ipcServer.Start(); err != nil {
-		return err
-	}
-
-	d.setState(state.Idle)
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	<-sigChan
-	log.Println("Termination signal received. Shutting down...")
-
-	d.Stop()
-	return nil
-}
-
-// Stop safely shuts down the daemon
-func (d *Daemon) Stop() {
-	if d.ipcServer != nil {
-		d.ipcServer.Stop()
-	}
-	log.Println("Jay Daemon stopped.")
-}
-
-// setState changes the internal state and publishes the event to the bus
-func (d *Daemon) setState(s state.State) {
-	d.currentState = s
-	d.bus.Publish(bus.StateChangedEvent{NewState: s.String()})
-}
-
-// RequestPermission publica a solicitação no bus e bloqueia aguardando a resposta do Frontend
-func (d *Daemon) RequestPermission(ctx context.Context, toolName, permission string) (bool, error) {
-	d.pendingPermsMu.Lock()
-	reqID := fmt.Sprintf("req_%d", atomic.AddUint64(&d.nextRequestID, 1))
-	ch := make(chan bool, 1)
-	d.pendingPerms[reqID] = ch
-	d.pendingPermsMu.Unlock()
-
-	prompt := fmt.Sprintf("Jay quer executar a ferramenta '%s' que exige a permissão '%s'. Permitir?", toolName, permission)
-
-	// Publica a intenção conceitualmente no barramento
-	d.bus.Publish(bus.PermissionRequestedEvent{
-		RequestID:  reqID,
-		Permission: permission,
-		Prompt:     prompt,
-	})
-
-	log.Printf("Permission '%s' (ref: %s) requested for tool '%s'. Waiting approval...", permission, reqID, toolName)
-
-	var allowed bool
-	select {
-	case allowed = <-ch:
-	case <-time.After(PermissionTimeout):
-		log.Printf("Permission '%s' (ref: %s) timed out after %v", permission, reqID, PermissionTimeout)
-		allowed = false
-	}
-
-	d.pendingPermsMu.Lock()
-	delete(d.pendingPerms, reqID)
-	d.pendingPermsMu.Unlock()
-
-	return allowed, nil
-}
-
-// handleIPCMessage acts as the main orchestrator for commands received from IPC.
-func (d *Daemon) handleIPCMessage(msg sdkipc.Message) sdkipc.Message {
-	// Trata a resposta de consentimento do usuário vinda da interface
-	if msg.Type == "permission.response" {
-		payloadBytes, err := json.Marshal(msg.Payload)
-		if err != nil {
-			return d.errorResponse("internal_error", "failed to process permission response")
-		}
-		var resp struct {
-			RefID    string `json:"ref_id"`
-			Allowed  bool   `json:"allowed"`
-			Modality string `json:"modality"`
-		}
-		if err := json.Unmarshal(payloadBytes, &resp); err == nil {
-			log.Printf("IPC Permission Response received. RefID: %s, Allowed: %v, Modality: %s", resp.RefID, resp.Allowed, resp.Modality)
-			d.pendingPermsMu.Lock()
-			ch, exists := d.pendingPerms[resp.RefID]
-			d.pendingPermsMu.Unlock()
-			if exists {
-				select {
-				case ch <- resp.Allowed:
-				default:
-				}
-			}
-		}
-		return sdkipc.Message{
-			Type: "response",
-			Payload: sdkipc.Response{
-				Status: "ok",
-				Data:   "permission response processed",
-			},
-		}
-	}
-
-	if msg.Type != "command" {
-		return sdkipc.Message{
-			Type: "error",
-			Payload: sdkipc.Error{
-				Code:    400,
-				Message: fmt.Sprintf("invalid message type: %s", msg.Type),
-			},
-		}
-	}
-
-	payloadBytes, err := json.Marshal(msg.Payload)
+	chatSvc, err := service.NewChatService(repos.ChatRepo, repos.RegRepo, repos.RuleRepo, evaluator)
 	if err != nil {
-		return d.errorResponse("internal_error", "failed to process command payload")
+		return nil, err
 	}
 
-	var cmd sdkipc.Command
-	if err := json.Unmarshal(payloadBytes, &cmd); err != nil {
-		return d.errorResponse("invalid_command", "invalid command structure")
+	msgSvc, err := service.NewMessageService(repos.MsgRepo, repos.ChatRepo, repos.RuleRepo, evaluator)
+	if err != nil {
+		return nil, err
 	}
 
-	// 1. Resolve/Prepare PlanningContext (Perception phase)
-	d.setState(state.Thinking)
-	time.Sleep(2 * time.Second)
-
-	input := ""
-	if cmd.Action != "" {
-		input = "/" + cmd.Action
-		if cmd.Data != nil {
-			if s, ok := cmd.Data.(string); ok && s != "" {
-				input += " " + strings.TrimSpace(s)
-			}
-		}
-	} else if cmd.Data != nil {
-		if s, ok := cmd.Data.(string); ok {
-			input = strings.TrimSpace(s)
-		}
-	}
-	input = strings.TrimSpace(input)
-
-	// Adiciona a entrada do usuário à sessão do Conversation Manager
-	d.convManager.AddUserMessage(input)
-
-	var responseText string
-	iteration := 0
-
-	for iteration < MaxPlanningIterations {
-		iteration++
-
-		planCtx := planner.PlanningContext{
-			WorkingMemory: make(map[string]string),
-			History:       d.convManager.GetHistory(),
-		}
-
-		if cmd.Action == "recall" || strings.HasPrefix(input, "/recall") {
-			var key string
-			if strings.HasPrefix(input, "/recall") {
-				parts := strings.SplitN(input, " ", 2)
-				if len(parts) >= 2 {
-					key = strings.TrimSpace(parts[1])
-				}
-			} else {
-				key = input
-			}
-
-			if key != "" {
-				val, err := d.memoryStore.Get(key)
-				if err == nil {
-					if valStr, ok := val.(string); ok {
-						planCtx.WorkingMemory[key] = valStr
-					}
-				}
-			}
-		}
-
-		// 2. Call Planner
-		plan, err := d.planner.Plan(context.Background(), input, planCtx)
-		if err != nil {
-			d.setState(state.Idle)
-			return d.errorResponse(cmd.ID, fmt.Sprintf("planning error: %v", err))
-		}
-
-		hasToolExecution := false
-		var currentToolID string
-		var currentToolName string
-		var currentArgs map[string]any
-		var currentMetadata map[string]string
-
-		for _, step := range plan.Steps {
-			if step.Type == planner.StepToolExecute {
-				hasToolExecution = true
-				if id, ok := step.Params["id"].(string); ok {
-					currentToolID = id
-				}
-				if t, ok := step.Params["tool"].(string); ok {
-					currentToolName = t
-				}
-				if a, ok := step.Params["args"].(map[string]any); ok {
-					currentArgs = a
-				} else if m, ok := step.Params["args"].(map[string]interface{}); ok {
-					currentArgs = m
-				}
-				if meta, ok := step.Params["metadata"].(map[string]string); ok {
-					currentMetadata = meta
-				}
-				break
-			}
-		}
-
-		// Se o plano não solicita ferramentas, apenas retorna a resposta textual final
-		if !hasToolExecution {
-			for _, step := range plan.Steps {
-				switch step.Type {
-				case planner.StepRespond:
-					if text, ok := step.Params["text"].(string); ok {
-						responseText = text
-						d.convManager.AddModelMessage(text)
-					}
-				case planner.StepMemoryPut:
-					key, kOk := step.Params["key"].(string)
-					val, vOk := step.Params["value"].(string)
-					if kOk && vOk {
-						if err := d.memoryStore.Put(key, val); err != nil {
-							log.Printf("Failed to write to memory: %v", err)
-						}
-					}
-				case planner.StepHumanEscalate:
-					responseText = "Escalated to human."
-					d.convManager.AddModelMessage(responseText)
-				}
-			}
-			break
-		}
-
-		// 3. Execute Steps (Side-effects execution phase)
-		d.setState(state.Executing)
-		time.Sleep(1 * time.Second)
-
-		// Obtém metadados da ferramenta para checar permissões
-		tool, exists := d.toolBus.GetTool(currentToolName)
-		if !exists {
-			errStr := fmt.Sprintf("Tool %s not found", currentToolName)
-			d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
-			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": errStr})
-			responseText = fmt.Sprintf("[Erro na Ferramenta: %s não encontrada]", currentToolName)
-			break
-		}
-
-		// Intercepta e valida consentimento de segurança de forma centralizada no Daemon
-		permissionsAllowed := true
-		for _, perm := range tool.Describe().Permissions {
-			allowed, err := d.RequestPermission(context.Background(), currentToolName, perm)
-			if err != nil || !allowed {
-				permissionsAllowed = false
-				break
-			}
-		}
-
-		if !permissionsAllowed {
-			d.bus.Publish(bus.ToolCompletedEvent{
-				ToolName: currentToolName,
-				Success:  false,
-				Error:    "permission denied by user",
-			})
-			d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
-			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": "permission denied by user"})
-			responseText = "[Erro na Ferramenta: permissão negada pelo usuário]"
-			break
-		}
-
-		progressChan := make(chan tools.ProgressUpdate, 10)
-
-		// Consome canal de progresso concorrentemente
-		go func() {
-			for up := range progressChan {
-				d.bus.Publish(bus.ToolProgressEvent{
-					ToolName: currentToolName,
-					State:    string(up.State),
-					Percent:  up.Percent,
-					Message:  up.Message,
-				})
-			}
-		}()
-
-		res, err := d.toolBus.Execute(context.Background(), currentToolName, tools.Request{
-			Args:     currentArgs,
-			Progress: progressChan,
-		})
-		close(progressChan)
-
-		success := err == nil && res.Success
-		var out any
-		var errStr string
-		if err != nil {
-			errStr = err.Error()
-		} else {
-			out = res.Output
-			errStr = res.Error
-		}
-
-		// Emite conclusão da ferramenta no bus
-		d.bus.Publish(bus.ToolCompletedEvent{
-			ToolName: currentToolName,
-			Success:  success,
-			Output:   out,
-			Error:    errStr,
-		})
-
-		// Registra no histórico da conversa a chamada e a resposta estruturada
-		d.convManager.AddFunctionCall(currentToolID, currentToolName, currentArgs, currentMetadata)
-		if success {
-			d.convManager.AddFunctionResponse(currentToolID, currentToolName, out)
-		} else {
-			d.convManager.AddFunctionResponse(currentToolID, currentToolName, map[string]any{"error": errStr})
-		}
-
-		// Limpa o input inicial para a próxima iteração não cair em regras de comandos CLI
-		input = ""
-		d.setState(state.Thinking)
-		time.Sleep(1 * time.Second)
+	toolSvc, err := service.NewToolService(repos.ToolRepo, repos.RuleRepo, evaluator)
+	if err != nil {
+		return nil, err
 	}
 
-	// Emitir uma animação teste para o C++
-	d.bus.Publish(bus.AnimationPlayEvent{Animation: "smile"})
-	time.Sleep(1 * time.Second)
-
-	d.setState(state.Idle)
-
-	return sdkipc.Message{
-		Type: "response",
-		Payload: sdkipc.Response{
-			RefID:  cmd.ID,
-			Status: "ok",
-			Data:   responseText,
-		},
+	procSvc, err := service.NewProcessorService(repos.MsgRepo, repos.ChatRepo, repos.ToolRepo, repos.RuleRepo, evaluator, llmClient)
+	if err != nil {
+		return nil, err
 	}
+
+	return &Services{
+		RegSvc:       regSvc,
+		ChatSvc:      chatSvc,
+		MsgSvc:       msgSvc,
+		ToolSvc:      toolSvc,
+		ProcessorSvc: procSvc,
+		Evaluator:    evaluator,
+	}, nil
 }
 
-func (d *Daemon) errorResponse(refID string, message string) sdkipc.Message {
-	return sdkipc.Message{
-		Type: "response",
-		Payload: sdkipc.Response{
-			RefID:  refID,
-			Status: "error",
-			Data:   message,
-		},
+func buildHandlersAndRouter(services *Services) (*api.Router, error) {
+	router := api.NewRouter()
+
+	regHandler, err := api.NewRegistrationHandler(services.RegSvc)
+	if err != nil {
+		return nil, err
 	}
+	regHandler.RegisterRoutes(router)
+
+	chatHandler, err := api.NewChatHandler(services.ChatSvc)
+	if err != nil {
+		return nil, err
+	}
+	chatHandler.RegisterRoutes(router)
+
+	msgHandler, err := api.NewMessageHandler(services.MsgSvc)
+	if err != nil {
+		return nil, err
+	}
+	msgHandler.RegisterRoutes(router)
+
+	toolHandler, err := api.NewToolHandler(services.ToolSvc)
+	if err != nil {
+		return nil, err
+	}
+	toolHandler.RegisterRoutes(router)
+
+	procHandler, err := api.NewProcessorHandler(services.ProcessorSvc)
+	if err != nil {
+		return nil, err
+	}
+	procHandler.RegisterRoutes(router)
+
+	return router, nil
+}
+
+func buildServer(router *api.Router) (*ipc.Server, error) {
+	return ipc.NewRawServer(router.Dispatch)
+}
+
+func resolveDatabasePath() string {
+	if dbEnv := os.Getenv("JAY_DB_PATH"); dbEnv != "" {
+		return dbEnv
+	}
+
+	if xdgData := os.Getenv("XDG_DATA_HOME"); xdgData != "" {
+		return filepath.Join(xdgData, "jay", "jay.db")
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "./jay.db"
+	}
+	return filepath.Join(home, ".jay", "jay.db")
 }

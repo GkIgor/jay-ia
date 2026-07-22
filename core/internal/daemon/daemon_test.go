@@ -1,9 +1,9 @@
 package daemon
 
 import (
-	"context"
 	"encoding/json"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,102 +11,109 @@ import (
 	"github.com/GkIgor/jay-ia/sdk/ipc"
 )
 
-func TestDaemonPermissionFlow(t *testing.T) {
-	// Isola a socket do IPC criando em diretório temporário
+func TestDaemon_Bootstrap_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Setenv("XDG_RUNTIME_DIR", tempDir)
+	dbPath := filepath.Join(tempDir, "test_jay.db")
 
-	d, err := New()
+	t.Setenv("LLM_PROVIDER", "mock")
+
+	d, err := NewDaemon(dbPath)
 	if err != nil {
-		t.Fatalf("Failed to create daemon: %v", err)
+		t.Fatalf("falha ao inicializar Daemon: %v", err)
+	}
+	defer d.Stop()
+
+	if d.Router() == nil {
+		t.Fatalf("esperava Router RPC instanciado no Daemon")
+	}
+}
+
+func TestDaemon_UnknownLLMProvider(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_jay.db")
+
+	t.Setenv("LLM_PROVIDER", "provedor_desconhecido_invalido")
+
+	_, err := NewDaemon(dbPath)
+	if err == nil {
+		t.Fatalf("esperava erro ao informar provedor LLM desconhecido, obteve nil")
+	}
+}
+
+func TestDaemon_IPC_EndToEnd(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "e2e_jay.db")
+	socketDir := filepath.Join(tempDir, "jay_sock")
+
+	_ = os.MkdirAll(socketDir, 0700)
+	socketPath := filepath.Join(socketDir, "jay", "jay.sock")
+
+	t.Setenv("XDG_RUNTIME_DIR", socketDir)
+	t.Setenv("LLM_PROVIDER", "mock")
+
+	d, err := NewDaemon(dbPath)
+	if err != nil {
+		t.Fatalf("falha ao instanciar Daemon: %v", err)
 	}
 
-	if err := d.ipcServer.Start(); err != nil {
-		t.Fatalf("Failed to start IPC Server: %v", err)
-	}
-	defer d.ipcServer.Stop()
+	go func() {
+		_ = d.Start()
+	}()
+	defer d.Stop()
 
-	// Dá um pequeno tempo para o socket UNIX inicializar
+	// Aguarda o listener do servidor de socket subir
 	time.Sleep(50 * time.Millisecond)
 
-	socketPath := filepath.Join(tempDir, "jay", "jay.sock")
+	// Conecta cliente de teste ao socket Unix
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
-		t.Fatalf("Failed to connect mock client to socket: %v", err)
+		t.Fatalf("falha ao conectar ao socket Unix %s: %v", socketPath, err)
 	}
 	defer conn.Close()
 
-	// Garante que o Daemon registrou a conexão de cliente no mapa de clientes antes de disparar o broadcast
-	time.Sleep(50 * time.Millisecond)
-
-	// Canal para colher resposta da rotina de RequestPermission
-	allowedChan := make(chan bool)
-	errChan := make(chan error)
-
-	go func() {
-		allowed, err := d.RequestPermission(context.Background(), "fs.write_file", "fs.write")
-		if err != nil {
-			errChan <- err
-			return
-		}
-		allowedChan <- allowed
-	}()
-
-	// Mock Client: Lê o evento de broadcast disparado pelo Core
-	decoder := json.NewDecoder(conn)
-	var eventMsg ipc.Message
-	if err := decoder.Decode(&eventMsg); err != nil {
-		t.Fatalf("Failed to decode permission request event: %v", err)
-	}
-
-	if eventMsg.Type != "request.permission" {
-		t.Errorf("Expected event message type 'request.permission', got %q", eventMsg.Type)
-	}
-
-	data, ok := eventMsg.Payload.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected event payload to be map[string]any, got %T", eventMsg.Payload)
-	}
-
-	refID, _ := data["ref_id"].(string)
-	permission, _ := data["permission"].(string)
-	prompt, _ := data["prompt"].(string)
-
-	if refID == "" {
-		t.Error("ref_id should not be empty")
-	}
-	if permission != "fs.write" {
-		t.Errorf("Expected permission 'fs.write', got %q", permission)
-	}
-	expectedPrompt := "Jay quer executar a ferramenta 'fs.write_file' que exige a permissão 'fs.write'. Permitir?"
-	if prompt != expectedPrompt {
-		t.Errorf("Expected prompt %q, got %q", expectedPrompt, prompt)
-	}
-
-	// Mock Client: Devolve a aprovação
-	respMsg := ipc.Message{
-		Type: "permission.response",
-		Payload: map[string]any{
-			"ref_id":   refID,
-			"allowed":  true,
-			"modality": "keyboard",
-		},
-	}
-
 	encoder := json.NewEncoder(conn)
-	if err := encoder.Encode(respMsg); err != nil {
-		t.Fatalf("Failed to write permission response: %v", err)
+	decoder := json.NewDecoder(conn)
+
+	// 1. Envia MsgRegisterClient (100)
+	regReqPayload := ipc.RegisterClientRequest{ClientID: "client_cpp_e2e"}
+	regReqEnv, _ := ipc.NewRequestEnvelope(ipc.MsgRegisterClient, "client_cpp_e2e", regReqPayload)
+
+	if err := encoder.Encode(regReqEnv); err != nil {
+		t.Fatalf("falha ao enviar envelope de registro: %v", err)
 	}
 
-	// Verifica se a rotina bloqueante do Core foi liberada e retornou true
-	select {
-	case allowed := <-allowedChan:
-		if !allowed {
-			t.Error("Expected RequestPermission to return true (allowed)")
-		}
-	case err := <-errChan:
-		t.Fatalf("RequestPermission failed: %v", err)
-	case <-time.After(1 * time.Second):
-		t.Fatal("Timeout waiting for RequestPermission to unblock")
+	var regRespEnv ipc.ResponseEnvelope
+	if err := decoder.Decode(&regRespEnv); err != nil {
+		t.Fatalf("falha ao receber resposta do registro: %v", err)
+	}
+
+	if regRespEnv.Status != ipc.ErrSuccess {
+		t.Fatalf("esperava status 0 no registro, obteve %d", regRespEnv.Status)
+	}
+
+	// 2. Envia MsgCreateChat (200)
+	chatReqPayload := ipc.CreateChatRequest{Title: "Chat E2E Integração"}
+	chatReqEnv, _ := ipc.NewRequestEnvelope(ipc.MsgCreateChat, "client_cpp_e2e", chatReqPayload)
+
+	if err := encoder.Encode(chatReqEnv); err != nil {
+		t.Fatalf("falha ao enviar envelope de criação de chat: %v", err)
+	}
+
+	var chatRespEnv ipc.ResponseEnvelope
+	if err := decoder.Decode(&chatRespEnv); err != nil {
+		t.Fatalf("falha ao receber resposta de criação de chat: %v", err)
+	}
+
+	if chatRespEnv.Status != ipc.ErrSuccess {
+		t.Fatalf("esperava status 0 na criação do chat, obteve %d", chatRespEnv.Status)
+	}
+
+	var createChatResp ipc.CreateChatResponse
+	if err := ipc.UnmarshalPayload(chatRespEnv.Payload, &createChatResp); err != nil {
+		t.Fatalf("falha ao desserializar payload do chat: %v", err)
+	}
+
+	if createChatResp.Chat.Title != "Chat E2E Integração" || createChatResp.Chat.OwnerRegistrationID != "client_cpp_e2e" {
+		t.Errorf("dados de chat E2E incorretos: %+v", createChatResp.Chat)
 	}
 }
