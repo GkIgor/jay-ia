@@ -176,6 +176,24 @@ type CreateMessageResponse struct {
 	ProcessedMessage *MessageDTO `json:"processed_message,omitempty"`
 }
 
+type UpdateMessageRequest struct {
+	MessageID  string `json:"message_id"`
+	NewContent string `json:"new_content"`
+	Metadata   string `json:"metadata,omitempty"`
+}
+
+type UpdateMessageResponse struct {
+	Message MessageDTO `json:"message"`
+}
+
+type DeleteMessageRequest struct {
+	MessageID string `json:"message_id"`
+}
+
+type DeleteMessageResponse struct {
+	Success bool `json:"success"`
+}
+
 type ProcessChatRequest struct {
 	ChatID string `json:"chat_id"`
 }
