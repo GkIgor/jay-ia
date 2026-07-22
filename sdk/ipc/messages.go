@@ -61,6 +61,42 @@ type RegisterClientResponse struct {
 	Registration RegistrationDTO `json:"registration"`
 }
 
+type UnregisterClientRequest struct {
+	ClientID string `json:"client_id"`
+}
+
+type UnregisterClientResponse struct {
+	Success bool `json:"success"`
+}
+
+type UpdateRegistrationRequest struct {
+	ClientID string `json:"client_id"`
+	Status   int    `json:"status,omitempty"`
+	Metadata string `json:"metadata,omitempty"`
+}
+
+type UpdateRegistrationResponse struct {
+	Registration RegistrationDTO `json:"registration"`
+}
+
+type GetRegistrationRequest struct {
+	RegistrationID string `json:"registration_id"`
+}
+
+type GetRegistrationResponse struct {
+	Registration RegistrationDTO `json:"registration"`
+}
+
+type ListRegistrationsRequest struct {
+	Limit  int `json:"limit,omitempty"`
+	Offset int `json:"offset,omitempty"`
+}
+
+type ListRegistrationsResponse struct {
+	Registrations []RegistrationDTO `json:"registrations"`
+	Total         int               `json:"total"`
+}
+
 type SharedRulePayload struct {
 	TargetScope    int    `json:"target_scope"`
 	Pattern        string `json:"pattern"`
