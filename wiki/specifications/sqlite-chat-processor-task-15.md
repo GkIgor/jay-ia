@@ -15,7 +15,7 @@ As Tasks 11 a 14 entregaram os serviços de recursos para Registros, Chats, Mens
 A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.Client`)**, implementando o **Serviço de Processamento de Chat (`ProcessorService`)**:
 
 - `MsgProcessChat (350)`: Aciona o ciclo de inferência da IA sobre um Chat específico. O serviço carrega o histórico de mensagens ativas, consulta as ferramentas disponíveis autorizadas para o requisitante, invoca a LLM e persiste atômica e sequencialmente a resposta gerada pelo agente (`AuthorAgent` / `RoleAssistant`).
-- Integration com `trigger_agent = true` no `MsgCreateMessage (300)`: Quando `CreateMessage` é invocado com `trigger_agent = true`, o `MessageService` invoca o `ProcessorService.ProcessChat` e preenche o campo `ProcessedMessage` no `CreateMessageResponse`.
+- Integração com `trigger_agent = true` no `MsgCreateMessage (300)`: Quando `CreateMessage` é invocado com `trigger_agent = true`, o `MessageService` invoca o `ProcessorService.ProcessChat` e preenche o campo `ProcessedMessage` no `CreateMessageResponse`.
 
 ---
 
@@ -40,11 +40,11 @@ A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.C
            │
            ▼
 [ ProcessorService (core/internal/service) ]
-   - Serializa execuções concorrentes por chat (chatLocks sync.Map)
-   - Valida autorização de escrita no Chat
+   - Valida autorização preliminar antes do lock
+   - Serializa a inferência por chat (chatLocks sync.Map mutexes)
    - Carrega histórico do Chat e converte via toLLMMessages(...)
-   - Consulta ferramentas autorizadas para o requesterID
-   - Respeita o contexto de cancelamento (ctx.Context)
+   - Consulta e converte ferramentas autorizadas via toLLMTools(...)
+   - Aplica timeout padrão (30s) e respeita o contexto de cancelamento (ctx.Context)
    - Executa llmClient.GenerateContent(...)
    - Persiste a mensagem gerada pelo agente (AuthorAgent/RoleAssistant)
 ```
@@ -55,7 +55,8 @@ A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.C
 
 - [ ] Separação estrita em 3 camadas (`Router` → `ProcessorHandler` → `ProcessorService` → `llm.Client`).
 - [ ] Suporte completo ao comando `MsgProcessChat (350)`.
-- [ ] Mutex de concorrência por `chatID` via `sync.Map`.
+- [ ] Mutex de concorrência por `chatID` via `sync.Map` com autorização prévia fora do lock.
+- [ ] Mappers isolados `toLLMMessages` e `toLLMTools`.
 - [ ] Filtragem estrita de ferramentas autorizadas por `requesterID`.
 - [ ] Persistência de mensagens geradas pela IA com autoria `AuthorAgent` e papel `RoleAssistant`.
 - [ ] Testes unitários com `llm.MockClient` validados sem dependência de rede ou API Keys de terceiros.
