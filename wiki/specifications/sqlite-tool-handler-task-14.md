@@ -14,10 +14,10 @@ As Tasks 11, 12 e 13 implementaram os serviços de recursos para Registros, Chat
 
 A Task 14 introduz o **Serviço de Ferramentas (`ToolService`)** e seus adaptadores RPC (`ToolHandler`), gerenciando o catálogo de capacidades registradas e versionadas pelos consumidores para utilização pelos Agentes do Core:
 
-- `MsgRegisterTool (400)`: Registro e atualização idempotente de ferramentas com versionamento SemVer e proteção contra sequestro de identidade (*Hijack Prevention*).
+- `MsgRegisterTool (400)`: Registro e atualização idempotente (Upsert semântico) de ferramentas com versionamento SemVer e proteção contra sequestro de identidade (*Hijack Prevention*).
 - `MsgUnregisterTool (401)`: Descadastramento e remoção física da ferramenta do catálogo.
 - `MsgGetTool (402)`: Consulta individual dos detalhes e do JSON Schema de uma ferramenta.
-- `MsgListTools (403)`: Listagem das ferramentas disponíveis no catálogo ou filtradas por registro proprietário.
+- `MsgListTools (403)`: Listagem das ferramentas disponíveis no catálogo global ou filtradas por registro proprietário.
 
 ---
 
