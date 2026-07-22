@@ -14,12 +14,12 @@ As Tasks 11 a 14 entregaram os serviços de recursos para Registros, Chats, Mens
 
 A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.Client`)**, implementando o **Serviço de Processamento de Chat (`ProcessorService`)**:
 
-- `MsgProcessChat (350)`: Aciona o ciclo de inferência da IA sobre um Chat específico. O serviço carrega o histórico de mensagens ativas, consulta as ferramentas disponíveis no catálogo, invoca a LLM e persiste atômica e sequencialmente a resposta gerada pelo agente (`AuthorAgent` / `RoleAssistant`).
-- Suporte a `trigger_agent = true` no `MsgCreateMessage (300)`: Permite que os clientes enviem uma mensagem do usuário e disparem automaticamente o processamento do assistente na mesma requisição RPC.
+- `MsgProcessChat (350)`: Aciona o ciclo de inferência da IA sobre um Chat específico. O serviço carrega o histórico de mensagens ativas, consulta as ferramentas disponíveis autorizadas para o requisitante, invoca a LLM e persiste atômica e sequencialmente a resposta gerada pelo agente (`AuthorAgent` / `RoleAssistant`).
+- Integration com `trigger_agent = true` no `MsgCreateMessage (300)`: Quando `CreateMessage` é invocado com `trigger_agent = true`, o `MessageService` invoca o `ProcessorService.ProcessChat` e preenche o campo `ProcessedMessage` no `CreateMessageResponse`.
 
 ---
 
-## 2. Princípios Arquiteturais e Fluxo de Execução
+## 2. Princípios Arquiteturais e Separação de Responsabilidades
 
 ```
 [ Socket IPC: bytes JSON ]
@@ -28,22 +28,23 @@ A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.C
 [ Router (core/internal/api) ]
    - Valida envelopes JSON
    - Despacha MsgProcessChat (350)
-   - Traduz erros em ErrorCode IPC
+   - Traduz erros em ErrorCode IPC (ErrorMapper)
    - Isola Panics (recover)
            │
            ▼
 [ ProcessorHandler (core/internal/api) ]
    - Desserializa ProcessChatRequest
    - Invoca ProcessorService.ProcessChat
-   - Converte a mensagem gerada em ipc.MessageDTO
+   - Converte a mensagem gerada em ipc.MessageDTO (processor_mapper.go)
    - Constrói ProcessChatResponse
            │
            ▼
 [ ProcessorService (core/internal/service) ]
+   - Serializa execuções concorrentes por chat (chatLocks sync.Map)
    - Valida autorização de escrita no Chat
-   - Carrega histórico do Chat via MessageStore
-   - Converte mensagens de banco para []llm.Message
-   - Consulta ferramentas disponíveis via ToolStore
+   - Carrega histórico do Chat e converte via toLLMMessages(...)
+   - Consulta ferramentas autorizadas para o requesterID
+   - Respeita o contexto de cancelamento (ctx.Context)
    - Executa llmClient.GenerateContent(...)
    - Persiste a mensagem gerada pelo agente (AuthorAgent/RoleAssistant)
 ```
@@ -54,6 +55,8 @@ A Task 15 conecta a camada de IPC ao **Orquestrador de IA / Motor de LLM (`llm.C
 
 - [ ] Separação estrita em 3 camadas (`Router` → `ProcessorHandler` → `ProcessorService` → `llm.Client`).
 - [ ] Suporte completo ao comando `MsgProcessChat (350)`.
+- [ ] Mutex de concorrência por `chatID` via `sync.Map`.
+- [ ] Filtragem estrita de ferramentas autorizadas por `requesterID`.
 - [ ] Persistência de mensagens geradas pela IA com autoria `AuthorAgent` e papel `RoleAssistant`.
 - [ ] Testes unitários com `llm.MockClient` validados sem dependência de rede ou API Keys de terceiros.
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
