@@ -8,14 +8,16 @@
 
 ---
 
-## 1. Contexto
+## 1. Contexto & Papel do Daemon como Composition Root
 
-As Tasks 04 a 15 implementaram toda a arquitetura em camadas do Jay Core:
+As Tasks 04 a 15 implementaram toda a arquitetura lógica e em camadas do Jay Core:
 - Camada de Persistência SQLite (`storage`)
 - Sistema Declarativo de Permissões (`permission`)
 - Motor de LLM (`llm`)
 - Serviços de Aplicação (`service`): `RegistrationService`, `ChatService`, `MessageService`, `ToolService`, `ProcessorService`
 - Roteador RPC e Handlers (`api`): `Router`, `RegistrationHandler`, `ChatHandler`, `MessageHandler`, `ToolHandler`, `ProcessorHandler`
+
+O pacote `core/internal/daemon` atua como o **Composition Root** exclusivo da aplicação, sendo o único local responsável por construir o grafo completo de dependências sem conter regras de negócio.
 
 A **Task 16** consolida a Fio Condutor da aplicação no executável headless `jayd` (`core/cmd/jayd/main.go`), integrando o servidor Unix Domain Socket com a suíte de serviços e repositórios.
 
@@ -33,13 +35,12 @@ A **Task 16** consolida a Fio Condutor da aplicação no executável headless `j
    - Aguarda encerramento gracioso
             │
             ▼
-[ Daemon (core/internal/daemon/daemon.go) ]
-   ├── 1. StorageEngine (SQLite ~/.jay/jay.db com Pragmas & Migrations)
-   ├── 2. Repositories (Registration, SharedRule, Chat, Message, Tool)
-   ├── 3. PermissionEvaluator & LLMClient (OpenRouter / Gemini / Mock)
-   ├── 4. Services (RegistrationSvc, ChatSvc, MessageSvc, ToolSvc, ProcessorSvc)
-   ├── 5. Handlers & Router RPC (RegisterRoutes dos 5 Handlers no Router)
-   └── 6. Unix Domain Socket Server (ipc.Server em XDG_RUNTIME_DIR ou ~/.jay/jay.sock)
+[ Daemon (core/internal/daemon/daemon.go) — Composition Root ]
+   ├── buildStorage()          -> StorageEngine (SQLite ~/.jay/jay.db com Pragmas & Migrations)
+   ├── buildRepositories()     -> Repositories (Registration, SharedRule, Chat, Message, Tool)
+   ├── buildServices()         -> PermissionEvaluator & LLMClient + 5 Serviços de Aplicação
+   ├── buildHandlersAndRouter()-> Router RPC com os 5 Handlers (19 rotas cadastradas)
+   └── buildServer()           -> Unix Domain Socket Server (ipc.Server em XDG_RUNTIME_DIR/jay.sock)
 ```
 
 ---
@@ -47,8 +48,9 @@ A **Task 16** consolida a Fio Condutor da aplicação no executável headless `j
 ## 3. Critérios de Aceite da Task
 
 - [ ] Executável `jayd` compilado com sucesso (`go build ./core/cmd/jayd`).
-- [ ] Bootstrap completo integrando Storage Engine (SQLite), Repositórios, Evaluator, Serviços, Handlers e Router RPC.
+- [ ] Bootstrap modularizado via builders privados (`buildStorage`, `buildRepositories`, `buildServices`, `buildHandlersAndRouter`, `buildServer`).
+- [ ] Validação estrita de `LLM_PROVIDER` desconhecido com retorno de erro explícito.
 - [ ] Conexão transparente via Unix Domain Socket entre os envelopes do SDK IPC e o Router RPC.
-- [ ] Encerramento gracioso em sinais `SIGINT` e `SIGTERM` sem vazamento de socket ou corrupção de banco.
+- [ ] Encerramento gracioso ordenado (`cancelCtx` → `server.Stop` → `engine.Close`).
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
 - [ ] 100% dos testes aprovados sob concorrência (`-race`).
