@@ -228,6 +228,26 @@ type RegisterToolResponse struct {
 	Tool ToolDTO `json:"tool"`
 }
 
+type UnregisterToolRequest struct {
+	ToolID string `json:"tool_id"`
+}
+
+type UnregisterToolResponse struct {
+	Success bool `json:"success"`
+}
+
+type GetToolRequest struct {
+	ToolID string `json:"tool_id"`
+}
+
+type GetToolResponse struct {
+	Tool ToolDTO `json:"tool"`
+}
+
+type ListToolsRequest struct {
+	RegistrationID string `json:"registration_id,omitempty"`
+}
+
 type ListToolsResponse struct {
 	Tools []ToolDTO `json:"tools"`
 }
