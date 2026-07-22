@@ -4,40 +4,22 @@
 **Linguagem & Padrão:** C++20 (C++ Modules `.cppm`)  
 **Biblioteca Gráfica:** Raylib (versão estritamente contida na camada Render)  
 **Comunicação I/O:** Socket Unix Domain com protocolo IPC v1 em thread assíncrona  
-**Status:** Arquitetura Base — Revisada & Aprimorada (Review 2)
+**Status:** Arquitetura Base — Aprovada (Review 3 — Nota 10/10)
 
 ---
 
-## 1. Visão Arquitetural
+## 1. Visão Arquitetural & Fluxo Unidirecional
 
-O **Jay Frontend** é projetado não como um conjunto ad-hoc de telas, mas como um **Motor de Interface Gráfica Reativo, Modular e de Altíssima Performance (GUI Engine)**.
-
----
-
-## 2. Ownership dos Componentes Arquiteturais
-
-```
-+-----------------------------------------------------------------------------------+
-| APPLICATION (Owner de Topo)                                                       |
-|   ├── StateStore          (std::unique_ptr<StateStore>)                           |
-|   ├── IPCClient           (std::unique_ptr<IPCClient>)                            |
-|   ├── ApplicationServices (std::unique_ptr<AppServiceGroup>)                      |
-|   ├── RenderContext       (std::unique_ptr<RenderContext>)                        |
-|   └── Shell               (std::unique_ptr<Shell>)                                |
-|          ├── ViewModelRegistry (std::unique_ptr<ViewModel> por tela/container)    |
-|          └── WidgetTree Root   (std::unique_ptr<ContainerWidget>)                 |
-|                 └── Sub-Widgets (std::unique_ptr<Widget> pertencente ao pai)     |
-+-----------------------------------------------------------------------------------+
-```
+$$\text{StateStore} \longrightarrow \text{ViewModel} \longrightarrow \text{Widget Tree} \longrightarrow \text{User Event} \longrightarrow \text{Use Case} \longrightarrow \text{Action} \longrightarrow \text{StateStore}$$
 
 ---
 
-## 3. Camada de Application Services (Casos de Uso)
+## 2. Camada de Use Cases (Workflows de Casos de Uso)
 
 ```
 +------------------+         +--------------------------+         +-----------------+
-|     Widget       |  ────>  |        ViewModel         |  ────>  |   App Service   |
-| (Componente UI)  |         | (Estado UI & Formatação) |         |  (Caso de Uso)  |
+|     Widget       |  ────>  |        ViewModel         |  ────>  |    Use Case     |
+| (Componente UI)  |         | (Estado UI & Formatação) |         | (Caso de Uso)   |
 +------------------+         +--------------------------+         +--------┬--------+
                                                                            │
                                                     ┌──────────────────────┴──────────────────────┐
@@ -50,8 +32,18 @@ O **Jay Frontend** é projetado não como um conjunto ad-hoc de telas, mas como 
 
 ---
 
+## 3. Política de Atualização Otimista com Rollback e Tradução de Falhas
+
+1. **Update Otimista**: O `UseCase` despacha uma `Action` para a `StateStore` alterando o estado para pendente (`MessagePending`).
+2. **Disparo Assíncrono**: O `UseCase` envia a RPC pelo `IPCClient`.
+3. **Resolução de Estado**:
+   - **Sucesso**: O `UseCase` despacha confirmação (`MessageSent`).
+   - **Falha/Timeout**: O `UseCase` captura a falha de rede/socket, traduz em um erro de domínio e despacha estado de falha (`MessageFailed`), permitindo retry do usuário.
+
+---
+
 ## 4. Regras Rígidas de Direção de Dependência
 
-$$\text{CORRETO: } \text{Widget} \longrightarrow \text{ViewModel} \longrightarrow \text{AppService} \longrightarrow \text{IPCClient} \text{ / } \text{StateStore}$$
+$$\text{CORRETO: } \text{Widget} \longrightarrow \text{ViewModel} \longrightarrow \text{UseCase} \longrightarrow \text{IPCClient} \text{ / } \text{StateStore}$$
 
 $$\text{PROIBIDO: } \text{Widget} \xlongrightarrow{\text{NÃO!}} \text{IPCClient} \quad \text{ou} \quad \text{Widget} \xlongrightarrow{\text{NÃO!}} \text{StateStore} \quad \text{ou} \quad \text{StateStore} \xlongrightarrow{\text{NÃO!}} \text{IPCClient}$$
