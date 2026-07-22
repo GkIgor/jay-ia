@@ -43,7 +43,7 @@ A Task 13 implementa o **CRUD puro do Serviço de Mensagens (`MessageService`)**
            ▼
 [ MessageService (core/internal/service) ]
    - Orquestra o CRUD de Mensagens
-   - Valida autorização de acesso ao Chat correspondente via PermissionEvaluator
+   - Valida autorização de acesso ao Chat correspondente via PermissionEvaluator (helpers internos)
    - Executa I/O através de MessageStore, ChatStore e SharedRuleStore
    - Mantém o incremento atômico de sequence_no
 ```
@@ -55,8 +55,9 @@ A Task 13 implementa o **CRUD puro do Serviço de Mensagens (`MessageService`)**
 - [ ] Separação estrita em 3 camadas (`Router` → `MessageHandler` → `MessageService` → Repositories/Evaluator).
 - [ ] Mapeamento completo dos 4 comandos de mensagem (300 a 303) com DTOs dedicados.
 - [ ] Incremento sequencial atômico de `sequence_no` por chat.
+- [ ] Semântica estrita do Pull Model (`sequence_no > since_sequence_no`, ordenação `sequence_no ASC`, `has_more` via `limit + 1`).
+- [ ] Ocultação do conteúdo de mensagens em Soft Delete (`content = ""`).
 - [ ] Ocultação de segurança em `GetMessages` (retorna `storage.ErrNotFound` em negações de autorização).
-- [ ] Suporte a *Soft Delete* e edição de mensagens.
 - [ ] Mappers `toMessageDTO` e `toMessageDTOs` centralizados em `message_mapper.go`.
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
 - [ ] 100% dos testes unitários do Service e dos Handlers IPC aprovados (inclusive com `-race`).
