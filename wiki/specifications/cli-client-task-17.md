@@ -1,4 +1,4 @@
-# Especificação Técnica de Implementação — Task 17: CLI Client Multi-Command Support (com Cobra CLI)
+# Especificação Técnica de Implementação — Task 17: CLI Client Multi-Command Support (com Cobra CLI & Modo Interativo)
 
 **Projeto:** Jay Core — Fase 3.5  
 **Pacote Go:** `cli/cmd/jay`  
@@ -9,16 +9,15 @@
 
 ---
 
-## 1. Contexto & Justificativa da Dependência `github.com/spf13/cobra`
+## 1. Contexto & Novo Modo Interativo (`jay interactive` / `jay repl`)
 
 A Task 16 unificou toda a arquitetura física e lógica do Jay Core no daemon `jayd`, conectando o servidor Unix Domain Socket a todas as 19 rotas RPC.
 
-A **Task 17** atualiza o cliente executável de linha de comando `jay` (`cli/cmd/jay/main.go`), permitindo interagir interativa ou administrativamente com o Daemon através de subcomandos estruturados.
+A **Task 17** atualiza o cliente executável de linha de comando `jay` (`cli/cmd/jay/main.go`), incluindo um **Modo Interativo (REPL)** para a primeira execução do usuário, além dos subcomandos administrativos.
 
-### Por que a dependência `github.com/spf13/cobra` vale a pena:
-- **Padrão de Mercado Go**: O Cobra é o padrão da indústria em Go (usado por Kubernetes, Hugo, GitHub CLI `gh`).
-- **Subcomandos Aninhados Idiomáticos**: Permite definir facilmente subcomandos como `jay chat create`, `jay msg send`, `jay tool list`.
-- **Validação de Argumentos & Menus de Help**: Gera menus `--help` automáticos, validação estrita de quantidade de parâmetros e flags com tratamento POSIX nativo, dispensando a escrita de parsers manuais de `os.Args`.
+### Por que o Modo Interativo REPL melhora o produto:
+- **Experiência de Uso Fluida**: Permite conversar com a IA diretamente pelo terminal sem precisar passar IDs manuais a cada comando.
+- **Primeira Execução Intuitiva**: Ao executar `jay` sem argumentos (ou `jay interactive`), a CLI cria a sessão de registro, abre um novo chat ("Conversa Interativa CLI") e inicia o loop de conversa contínuo até o usuário digitar `/quit` ou `Ctrl+C`.
 
 ---
 
@@ -26,6 +25,7 @@ A **Task 17** atualiza o cliente executável de linha de comando `jay` (`cli/cmd
 
 ```
 jay
+├── interactive / repl                       (Modo Conversacional Interativo em Tempo Real)
 ├── register [client_id]                     (MsgRegisterClient - 100)
 ├── unregister [client_id]                   (MsgUnregisterClient - 101)
 ├── chat
@@ -48,6 +48,7 @@ jay
 
 - [ ] Dependência `github.com/spf13/cobra` adicionada ao `go.mod`.
 - [ ] Executável `jay` compilado com sucesso (`go build ./cli/cmd/jay`).
+- [ ] Modo Interativo `jay interactive` / `jay repl` funcional com loop REPL conversacional.
 - [ ] Suporte completo à árvore de subcomandos Cobra (`register`, `chat`, `msg`, `tool`, `process`).
 - [ ] Envio padronizado de envelopes `RequestEnvelope` (v1) e exibição amigável de `ResponseEnvelope`.
 - [ ] `go vet ./...` e `go test ./...` sem falhas em todo o repositório.
