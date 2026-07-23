@@ -30,6 +30,10 @@ For any task:
    - Executar o comando de build correspondente (`go build` / `make build` ou `cmake --build build`) para garantir que o código compila perfeitamente e sem avisos.
    - Formatar o arquivo usando as ferramentas padrão do repositório (`gofmt` para Go, `clang-format` com a configuração `.clang-format` do projeto para C++).
    - **Atenção especial ao C++**: A configuração do `clang-format` deve sempre respeitar a legibilidade e a semântica de espaçamento em blocos e namespaces, garantindo que o código não fique aglomerado sem quebras de linha lógicas (espaços verticais).
+8. **Regra de Comentários em Código (CRÍTICA)**:
+   - **Proibido adicionar comentários explicativos de código óbvio**, comentários inline redundantes ou cabeçalhos decorativos.
+   - O código deve ser auto-explicativo por meio de nomenclaturas explícitas e legíveis.
+   - Comentários são permitidos **exclusivamente** para documentar decisões técnicas não-óbvias (o *motivo*/*WHY*, e nunca o *o quê*/*WHAT*). Se o código for legível por si só, **não adicione comentários**.
 
 Good destinations:
 - vision changes: [`wiki/vision/`](wiki/vision/)
