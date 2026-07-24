@@ -80,8 +80,11 @@ func (r *Router) DispatchEnvelope(ctx context.Context, rawRequest []byte) *ipc.R
 	r.mu.RUnlock()
 
 	if !exists || h == nil {
+		log.Printf("[RPC] type=%d reqID=%s => NOT_IMPLEMENTED", req.Type, req.RequestID)
 		return ipc.NewErrorResponseEnvelope(req.RequestID, req.Type, ipc.ErrNotImplemented, "comando não suportado pelo servidor", fmt.Sprintf("type=%d", req.Type))
 	}
+
+	log.Printf("[RPC] type=%d reqID=%s client=%s => dispatch", req.Type, req.RequestID, req.ClientID)
 
 	// Aplicação de middlewares
 	finalHandler := h
@@ -105,11 +108,13 @@ func (r *Router) DispatchEnvelope(ctx context.Context, rawRequest []byte) *ipc.R
 	}()
 
 	if resp != nil {
+		log.Printf("[RPC] type=%d reqID=%s => status=%d", req.Type, req.RequestID, resp.Status)
 		return resp
 	}
 
 	if err != nil {
 		errCode, msg := mapDomainErrorToIPC(err)
+		log.Printf("[RPC] type=%d reqID=%s => ERRO status=%d msg=%s", req.Type, req.RequestID, errCode, msg)
 		return ipc.NewErrorResponseEnvelope(req.RequestID, req.Type, errCode, msg, err.Error())
 	}
 

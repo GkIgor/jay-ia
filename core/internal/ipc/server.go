@@ -149,6 +149,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		go func(rawBytes []byte) {
+			log.Printf("[IPC] Requisição recebida (%d bytes)", len(rawBytes))
 			defer func() {
 				if r := recover(); r != nil {
 					log.Printf("IPC response dropped because client disconnected: %v", r)
