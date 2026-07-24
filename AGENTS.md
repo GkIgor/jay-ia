@@ -26,9 +26,10 @@ For any task:
 4. If knowledge is missing, ask a human for direction.
 5. After clarification, register the result in the appropriate wiki location.
 6. If there is any pending item, deferred improvement, test gap, mock, `TODO`, or unresolved follow-up, record it in the wiki and update that record when it is resolved or changed.
-7. **Regra de Alteração de Código (CRÍTICA)**: Sempre que alterar qualquer linha de código (seja em Go ou C++), o agente **deve** obrigatoriamente:
+7. **Regra de Alteração de Código (CRÍTICA - OBRIGATÓRIA)**: Sempre que alterar qualquer linha de código (seja em Go ou C++), o agente **deve obrigatoriamente**:
    - Executar o comando de build correspondente (`go build` / `make build` ou `cmake --build build`) para garantir que o código compila perfeitamente e sem avisos.
-   - Formatar o arquivo usando as ferramentas padrão do repositório (`gofmt` para Go, `clang-format` com a configuração `.clang-format` do projeto para C++).
+   - Formatar o arquivo modificado usando as ferramentas padrão do repositório. Para Go, use `gofmt`. Para C++, **é obrigatório** executar `clang-format -i <arquivo>` seguindo a especificação do `.clang-format` na raiz do projeto (que define o estilo Google e **recuo estrito de 2 espaços**).
+   - Nenhuma tarefa ou código C++ será considerado concluído ou passível de commit sem a execução prévia do `clang-format` no arquivo.
    - **Atenção especial ao C++**: A configuração do `clang-format` deve sempre respeitar a legibilidade e a semântica de espaçamento em blocos e namespaces, garantindo que o código não fique aglomerado sem quebras de linha lógicas (espaços verticais).
 8. **Regra de Comentários em Código (CRÍTICA)**:
    - **Proibido adicionar comentários explicativos de código óbvio**, comentários inline redundantes ou cabeçalhos decorativos.
