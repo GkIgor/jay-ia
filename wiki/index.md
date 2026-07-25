@@ -146,6 +146,7 @@ Documentos:
 - [`prds/phase-4.md`](./prds/phase-4.md)
 - [`prds/phase-5.md`](./prds/phase-5.md)
 - [`prds/phase-6.md`](./prds/phase-6.md)
+- [`prds/ui-redesign-luminous-glass.md`](./prds/ui-redesign-luminous-glass.md) — *Redesign Completo da UI C++ (Luminous Glass)*
 
 Os PRDs descrevem como cada fase será implementada.
 
@@ -195,6 +196,7 @@ Documentos principais:
 - [`development/testing.md`](./development/testing.md)
 - [`development/release.md`](./development/release.md)
 - [`development/ai-agents.md`](./development/ai-agents.md) — *Processo de Revisão e Auditoria por Personas de IA*
+- [`development/raylib-ui-rendering.md`](./development/raylib-ui-rendering.md) — *Desafios e Arquitetura de Rendering UI (Raylib vs Browser)*
 
 Documentação destinada aos desenvolvedores.
 
