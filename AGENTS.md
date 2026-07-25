@@ -74,3 +74,10 @@ Before finishing a change:
 - avoid leaving important decisions only in commits or conversations
 
 Use short imperative commits, for example: `docs: record memory ownership decision`.
+
+## Processo de Auditoria por Personas de IA
+Ao finalizar qualquer tarefa de implementação longa, complexa ou estruturada em um plano, é **obrigatório** ler as diretrizes dos perfis de auditoria locais (localizados na raiz do projeto) e realizar uma auto-avaliação do trabalho produzido:
+- [UX Agent](../agents/ux-agent.md): Validar a qualidade visual do frontend.
+- [Code-Review Agent](../agents/code-review-agent.md): Auditar erros de memória, concorrência e tipos.
+- [Architect Agent](../agents/architect-agent.md): Garantir alinhamento com SOLID, Clean Code e a Wiki.
+Apresente um parecer breve de cada auditoria na sua conclusão.

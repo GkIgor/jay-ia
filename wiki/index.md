@@ -194,6 +194,7 @@ Documentos principais:
 - [`development/project-structure.md`](./development/project-structure.md)
 - [`development/testing.md`](./development/testing.md)
 - [`development/release.md`](./development/release.md)
+- [`development/ai-agents.md`](./development/ai-agents.md) — *Processo de Revisão e Auditoria por Personas de IA*
 
 Documentação destinada aos desenvolvedores.
 
