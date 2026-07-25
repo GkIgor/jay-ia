@@ -78,6 +78,7 @@ Documentos principais:
 
 - [`architecture/overview.md`](./architecture/overview.md)
 - [`architecture/core.md`](./architecture/core.md)
+- [`architecture/core-features.md`](./architecture/core-features.md) — *Inventário de Features e Especificações do Core*
 - [`architecture/planner.md`](./architecture/planner.md)
 - [`architecture/memory.md`](./architecture/memory.md)
 - [`architecture/knowledge.md`](./architecture/knowledge.md)
