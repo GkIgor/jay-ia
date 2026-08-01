@@ -147,6 +147,7 @@ Documentos:
 - [`prds/phase-5.md`](./prds/phase-5.md)
 - [`prds/phase-6.md`](./prds/phase-6.md)
 - [`prds/ui-redesign-luminous-glass.md`](./prds/ui-redesign-luminous-glass.md) — *Redesign Completo da UI C++ (Luminous Glass)*
+- [`prds/ui-redesign-phases-5.5-and-6.md`](./prds/ui-redesign-phases-5.5-and-6.md) — *PRD Tático: Fase 5.5 (Layout) e Fase 6 (Glass FBO)*
 
 Os PRDs descrevem como cada fase será implementada.
 
